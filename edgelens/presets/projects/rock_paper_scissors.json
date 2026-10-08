@@ -1,0 +1,13 @@
+{
+  "title": {"zh_TW": "範例：剪刀石頭布", "en": "Example: rock paper scissors"},
+  "description": {
+    "zh_TW": "用手勢練習影像分類：每類拍 50 張以上，背景與光線多變化。",
+    "en": "Practice image classification with hand gestures: 50+ photos per class, vary background and lighting."
+  },
+  "classes": [
+    {"id": "rock", "names": {"zh_TW": "石頭", "en": "Rock"}, "color": "#E69F00", "hotkey": "1"},
+    {"id": "paper", "names": {"zh_TW": "布", "en": "Paper"}, "color": "#56B4E9", "hotkey": "2"},
+    {"id": "scissors", "names": {"zh_TW": "剪刀", "en": "Scissors"}, "color": "#009E73", "hotkey": "3"},
+    {"id": "background", "names": {"zh_TW": "沒有手", "en": "No hand"}, "color": "#999999", "hotkey": "4"}
+  ]
+}

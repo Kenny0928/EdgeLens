@@ -1,0 +1,2 @@
+# 選配：TFLite 模型推論（bootstrap 裝不到時會改試 tflite-runtime）
+ai-edge-litert>=1.0

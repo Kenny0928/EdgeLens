@@ -1,0 +1,8 @@
+# 開發與測試用（學生不需要）
+-r base.txt
+-r extra-onnx.txt
+onnx>=1.15
+pytest>=8
+pytest-qt>=4.4
+pytest-timeout>=2.3
+ruff>=0.6

@@ -1,0 +1,6 @@
+# 必要套件：任何一個裝不起來，EdgeLens 就不會啟動
+PySide6-Essentials>=6.8,<6.11
+opencv-python-headless>=4.9,<5
+numpy>=1.26,<3
+pyserial>=3.5
+cv2-enumerate-cameras>=1.1

@@ -1,0 +1,2 @@
+# 選配：ONNX 模型推論
+onnxruntime>=1.17

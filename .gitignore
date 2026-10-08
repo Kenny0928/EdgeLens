@@ -1,0 +1,18 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.nosync/
+.venv/
+venv/
+.DS_Store
+Thumbs.db
+# 下載的測試模型與本機產生的檔案
+tests/fixtures/models/
+tests/fixtures/generated/
+wheelhouse/

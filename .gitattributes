@@ -1,0 +1,12 @@
+* text=auto eol=lf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.sh text eol=lf
+*.command text eol=lf
+*.py text eol=lf
+*.png binary
+*.jpg binary
+*.onnx binary
+*.tflite binary
+*.kmodel binary
+*.bin binary

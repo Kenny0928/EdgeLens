@@ -1,0 +1,13 @@
+{
+  "title": {"zh_TW": "範例：筊杯辨識", "en": "Example: moon blocks (jiaobei)"},
+  "description": {
+    "zh_TW": "辨識兩個筊杯的正反面組合。拍照時讓筊杯落在不同位置與角度。",
+    "en": "Recognize the face-up/face-down combination of two moon blocks. Vary position and angle."
+  },
+  "classes": [
+    {"id": "holy", "names": {"zh_TW": "聖筊（一正一反）", "en": "Holy (one up, one down)"}, "color": "#D55E00", "hotkey": "1"},
+    {"id": "laughing", "names": {"zh_TW": "笑筊（兩個平面朝上）", "en": "Laughing (both flat up)"}, "color": "#E69F00", "hotkey": "2"},
+    {"id": "negative", "names": {"zh_TW": "陰筊（兩個凸面朝上）", "en": "Negative (both round up)"}, "color": "#0072B2", "hotkey": "3"},
+    {"id": "empty", "names": {"zh_TW": "沒有筊杯", "en": "No blocks"}, "color": "#999999", "hotkey": "4"}
+  ]
+}

@@ -1,0 +1,54 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "edgelens"
+dynamic = ["version"]
+description = "跨平台邊緣視覺相機工具：接相機、做影像處理、跑模型、蒐集樣本（教學用）"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10,<3.14"
+dependencies = [
+    "PySide6-Essentials>=6.8,<6.11",
+    "opencv-python-headless>=4.9,<5",
+    "numpy>=1.26,<3",
+    "pyserial>=3.5",
+    "cv2-enumerate-cameras>=1.1",
+]
+
+[project.optional-dependencies]
+onnx = ["onnxruntime>=1.17"]
+tflite = ["ai-edge-litert>=1.0"]
+k210 = ["kflash>=1.1.6"]
+
+[project.scripts]
+edgelens = "edgelens.__main__:main"
+
+[tool.setuptools.dynamic]
+version = { attr = "edgelens.__version__" }
+
+[tool.setuptools.packages.find]
+include = ["edgelens*"]
+
+[tool.setuptools.package-data]
+"*" = ["*.json", "*.txt", "*.py"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+timeout = 120
+markers = [
+    "gui: 需要 Qt（以 offscreen 模式執行）",
+    "hardware: 需要實體相機或開發板，CI 不執行",
+    "slow: 執行較久的測試",
+    "network: 需要網路（例如下載測試模型）",
+]
+
+[tool.ruff]
+line-length = 110
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "B", "UP", "I"]
+ignore = ["E501", "B027"]  # B027：基底類別刻意留空的 hook（reset、close）
