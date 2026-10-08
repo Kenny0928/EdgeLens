@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "steps": [
+    {
+      "kind": "edge_sim.sensor",
+      "enabled": true,
+      "params": {
+        "profile": "k210",
+        "upscale": true,
+        "width": 320,
+        "height": 240,
+        "rgb565": true,
+        "quality": 50,
+        "noise": 3.0,
+        "blur": 0.5
+      }
+    }
+  ],
+  "name": "k210",
+  "title": {
+    "zh_TW": "模擬 K210",
+    "en": "Simulate K210"
+  },
+  "description": {
+    "zh_TW": "教學示意：觀察小型相機的畫質退化，不代表實機校正。",
+    "en": "Teaching example: explore small-camera image degradation, not a calibrated hardware model."
+  }
+}

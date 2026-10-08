@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "steps": [
+    {
+      "kind": "color.grayscale",
+      "enabled": true,
+      "params": {}
+    },
+    {
+      "kind": "filter.gaussian_blur",
+      "enabled": true,
+      "params": {
+        "size": 5,
+        "sigma": 0.0
+      }
+    },
+    {
+      "kind": "edge.canny",
+      "enabled": true,
+      "params": {
+        "low": 50,
+        "high": 150,
+        "overlay": false
+      }
+    }
+  ],
+  "name": "edges",
+  "title": {
+    "zh_TW": "邊緣偵測",
+    "en": "Edge detection"
+  },
+  "description": {
+    "zh_TW": "平滑亮度後找出物體的連續邊緣。",
+    "en": "Smooth brightness and find connected object edges."
+  }
+}

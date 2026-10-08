@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "steps": [
+    {
+      "kind": "color.grayscale",
+      "enabled": true,
+      "params": {}
+    },
+    {
+      "kind": "threshold.otsu",
+      "enabled": true,
+      "params": {
+        "invert": false
+      }
+    },
+    {
+      "kind": "analyze.contours",
+      "enabled": true,
+      "params": {
+        "approximate": true,
+        "epsilon": 0.02,
+        "min_area": 20.0
+      }
+    }
+  ],
+  "name": "binary_shapes",
+  "title": {
+    "zh_TW": "二值化找形狀",
+    "en": "Find binary shapes"
+  },
+  "description": {
+    "zh_TW": "自動二值化，再觀察物體的近似多邊形。",
+    "en": "Threshold automatically and inspect simplified object outlines."
+  }
+}

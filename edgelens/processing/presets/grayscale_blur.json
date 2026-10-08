@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "steps": [
+    {
+      "kind": "color.grayscale",
+      "enabled": true,
+      "params": {}
+    },
+    {
+      "kind": "filter.gaussian_blur",
+      "enabled": true,
+      "params": {
+        "size": 5,
+        "sigma": 0.0
+      }
+    }
+  ],
+  "name": "grayscale_blur",
+  "title": {
+    "zh_TW": "灰階＋模糊",
+    "en": "Grayscale and blur"
+  },
+  "description": {
+    "zh_TW": "先移除色彩，再減少雜訊，觀察亮度與形狀。",
+    "en": "Remove color and smooth noise to study brightness and shape."
+  }
+}

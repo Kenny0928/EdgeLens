@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "steps": [
+    {
+      "kind": "color.hsv_mask",
+      "enabled": true,
+      "params": {
+        "h_min": 170,
+        "h_max": 10,
+        "s_min": 100,
+        "s_max": 255,
+        "v_min": 50,
+        "v_max": 255,
+        "output": "mask",
+        "alpha": 0.4
+      }
+    },
+    {
+      "kind": "morph.open",
+      "enabled": true,
+      "params": {
+        "shape": "ellipse",
+        "size": 3,
+        "iterations": 1
+      }
+    },
+    {
+      "kind": "analyze.blobs",
+      "enabled": true,
+      "params": {
+        "min_area": 100.0,
+        "max_area": 1000000000.0,
+        "draw_boxes": true,
+        "draw_centers": true
+      }
+    }
+  ],
+  "name": "red_objects",
+  "title": {
+    "zh_TW": "找紅色物體",
+    "en": "Find red objects"
+  },
+  "description": {
+    "zh_TW": "跨 0 的紅色 HSV 遮罩，去除雜點後計算色塊。",
+    "en": "Select red across hue zero, remove specks and count blobs."
+  }
+}

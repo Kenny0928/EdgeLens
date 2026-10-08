@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "steps": [
+    {
+      "kind": "edge_sim.sensor",
+      "enabled": true,
+      "params": {
+        "profile": "esp32_cam",
+        "upscale": true,
+        "width": 320,
+        "height": 240,
+        "rgb565": true,
+        "quality": 50,
+        "noise": 3.0,
+        "blur": 0.5
+      }
+    }
+  ],
+  "name": "esp32_cam",
+  "title": {
+    "zh_TW": "模擬 ESP32-CAM",
+    "en": "Simulate ESP32-CAM"
+  },
+  "description": {
+    "zh_TW": "教學示意：觀察低解析度、色彩量化與壓縮的影響。",
+    "en": "Teaching example: explore reduced resolution, quantized colors and compression."
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "steps": [
+    {
+      "kind": "motion.frame_diff",
+      "enabled": true,
+      "params": {
+        "show_diff": true
+      }
+    }
+  ],
+  "name": "motion_detection",
+  "title": {
+    "zh_TW": "動態偵測",
+    "en": "Motion detection"
+  },
+  "description": {
+    "zh_TW": "比較連續兩張的亮度差異，亮處代表改變較大。",
+    "en": "Compare consecutive frames; brighter pixels indicate larger changes."
+  }
+}

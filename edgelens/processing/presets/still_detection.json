@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "steps": [
+    {
+      "kind": "motion.still_detect",
+      "enabled": true,
+      "params": {
+        "threshold": 2.0,
+        "frames": 10
+      }
+    }
+  ],
+  "name": "still_detection",
+  "title": {
+    "zh_TW": "靜止偵測",
+    "en": "Stillness detection"
+  },
+  "description": {
+    "zh_TW": "連續十次差異很小時，輸出靜止訊號供自動拍照。",
+    "en": "Report stillness after ten small consecutive differences for automatic capture."
+  }
+}

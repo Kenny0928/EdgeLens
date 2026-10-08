@@ -54,20 +54,46 @@ class StepContext:
     overlays  步驟想畫在畫面上的圖形（例如色塊外框），座標為原始畫面座標。
     data      步驟輸出的數值，鍵建議用 "<kind>.<名稱>"，例如 "motion.diff.score"；
               這些數值會顯示在畫面資訊、寫進錄影 CSV。
-    offset    幾何步驟（裁切、ROI）造成的座標位移 (dx, dy)，讓後面步驟產生的 overlay
-              能換算回原始畫面座標：原始座標 = 目前座標 * scale + offset。
-    scale     幾何步驟造成的縮放 (sx, sy)。
+    matrix    3×3 仿射矩陣：目前影像座標 → 原始畫面座標。裁切、縮放、旋轉、翻轉等
+              幾何步驟呼叫 push_transform() 更新它，後面步驟產生的 overlay 就能用
+              to_original() 換算回原始畫面座標。
     """
 
     frame: Frame
     overlays: list[Overlay] = field(default_factory=list)
     data: dict[str, Any] = field(default_factory=dict)
-    offset: tuple[float, float] = (0.0, 0.0)
-    scale: tuple[float, float] = (1.0, 1.0)
+    matrix: np.ndarray = field(default_factory=lambda: np.eye(3))
+
+    def push_transform(self, new_to_previous: Any) -> None:
+        """幾何步驟輸出新影像後呼叫。new_to_previous 是 2×3 或 3×3 矩陣，把「新影像座標」
+        對應到「這一步的輸入影像座標」（例如裁切起點 (x, y)：[[1, 0, x], [0, 1, y]]）。"""
+        m = np.asarray(new_to_previous, dtype=float)
+        if m.shape == (2, 3):
+            m = np.vstack([m, [0.0, 0.0, 1.0]])
+        if m.shape != (3, 3):
+            raise ValueError("push_transform 需要 2×3 或 3×3 的矩陣")
+        self.matrix = self.matrix @ m
 
     def to_original(self, x: float, y: float) -> tuple[float, float]:
         """目前影像座標 → 原始畫面座標。"""
-        return x * self.scale[0] + self.offset[0], y * self.scale[1] + self.offset[1]
+        p = self.matrix @ (float(x), float(y), 1.0)
+        return float(p[0]), float(p[1])
+
+    def to_original_points(self, points: Any) -> np.ndarray:
+        """(N,2) 的點一次換算（輪廓等大量點用）。"""
+        pts = np.asarray(points, dtype=float).reshape(-1, 2)
+        return pts @ self.matrix[:2, :2].T + self.matrix[:2, 2]
+
+    @property
+    def offset(self) -> tuple[float, float]:
+        """目前影像原點在原始畫面的位置（只有平移與縮放時等於裁切位移）。"""
+        return float(self.matrix[0, 2]), float(self.matrix[1, 2])
+
+    @property
+    def scale(self) -> tuple[float, float]:
+        """目前影像每個像素在原始畫面上的長度 (sx, sy)。"""
+        n = np.linalg.norm(self.matrix[:2, :2], axis=0)
+        return float(n[0]), float(n[1])
 
 
 class ProcessingStep(ABC):
@@ -77,7 +103,8 @@ class ProcessingStep(ABC):
     category          CATEGORIES 之一，GUI 依此分組。
     display_name_key  i18n 鍵；說明文字用 description_key。
     stateful          True 表示會記住前一張畫面（例如影格差異），換來源時會 reset()。
-    changes_size      True 表示輸出大小可能和輸入不同（裁切、縮放）。
+    changes_size      True 表示輸出大小可能和輸入不同（裁切、縮放）；幾何步驟要呼叫
+                      ctx.push_transform()，overlay 座標才換算得回原始畫面。
     accepts_gray      False 表示只能處理彩色（例如 HSV 遮罩）；遇到灰階輸入時，
                       Pipeline 會先轉成 BGR 再交給它。
     """
