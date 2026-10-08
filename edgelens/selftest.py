@@ -54,6 +54,25 @@ def _optional() -> Check:
                  required=False)
 
 
+def _extras() -> Check:
+    """讀 bootstrap 寫在 venv 裡的 extras.json，顯示選配套件的安裝結果。"""
+    from pathlib import Path
+
+    path = Path(sys.prefix) / "extras.json"
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return Check("bootstrap_extras", True, f"{path} 不存在或無法讀取（不是用 bootstrap 啟動）", required=False)
+    parts = []
+    for key, info in data.items():
+        if isinstance(info, dict) and info.get("ok"):
+            parts.append(f"{key}=ok({info.get('package', '')})")
+        else:
+            err = info.get("error", "") if isinstance(info, dict) else ""
+            parts.append(f"{key}=failed {err[:80]}".strip())
+    return Check("bootstrap_extras", True, ", ".join(parts), required=False)
+
+
 def _registries() -> Check:
     from edgelens.core.registry import all_registries, discover, import_problems
 
@@ -128,7 +147,7 @@ def _qt() -> Check:
 
 
 CHECKS: list[Callable[[], Check]] = [_python, _imports, _optional, _writable, _i18n, _registries,
-                                     _synthetic_pipeline, _qt]
+                                     _synthetic_pipeline, _qt, _extras]
 
 
 def run(as_json: bool = False) -> int:
