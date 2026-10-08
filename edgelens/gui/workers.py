@@ -236,12 +236,38 @@ class SourceWorker(QObject):
             self.closed.emit()
 
     def _drain(self) -> None:
+        """處理佇列裡所有指令。連續的參數指令合併成一次 set_controls（同一個 key 取最後的值），
+        K210 這類每條指令都要等回覆的來源才不會讓畫面卡住；其他指令照原本順序執行。"""
+        batch: dict[str, Any] = {}
         while True:
             try:
                 cmd = self._cmds.get_nowait()
             except queue.Empty:
-                return
+                break
+            if cmd[0] == "control":
+                key, value = cmd[1]
+                batch.pop(key, None)
+                batch[key] = value
+                continue
+            if batch:
+                self._apply_controls(batch)
+                batch = {}
             self._handle(cmd)
+        if batch:
+            self._apply_controls(batch)
+
+    def _apply_controls(self, changes: dict[str, Any]) -> None:
+        if self._source is None or self._errored:
+            return
+        try:
+            results = self._source.set_controls(changes)
+        except SourceError as e:
+            results = {k: ControlResult.failed(e.message, v) for k, v in changes.items()}
+        except Exception as e:  # noqa: BLE001
+            log.exception("設定參數失敗")
+            results = {k: ControlResult.failed(str(e), v) for k, v in changes.items()}
+        for key, value in changes.items():
+            self.controlResult.emit(key, results.get(key) or ControlResult.failed("", value))
 
     def _handle(self, cmd: tuple[str, Any]) -> None:
         name, arg = cmd

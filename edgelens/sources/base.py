@@ -172,6 +172,11 @@ class FrameSource(ABC):
         """設定參數。值先用 ControlSpec.validate 檢查。能讀回時要讀回確認並設定 verified。"""
         return ControlResult.failed(f"不支援參數 {key}")
 
+    def set_controls(self, changes: dict[str, Any]) -> dict[str, ControlResult]:
+        """一次設定多個參數，回傳各自的結果。預設逐一呼叫 set_control；能把多個參數合併成
+        一條指令的來源（例如 K210 每條指令都要等板子回覆）可以覆寫，GUI 會優先呼叫這個。"""
+        return {k: self.set_control(k, v) for k, v in changes.items()}
+
     def run_action(self, key: str, **kwargs: Any) -> ControlResult:
         """執行 ACTION 參數（例如「上傳模型」）。耗時的動作可以阻塞，worker 會在背景執行緒呼叫。
 

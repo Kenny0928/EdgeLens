@@ -54,3 +54,30 @@ def test_debounced_flush_and_cancel(qtbot):
     s.cancel()
     qtbot.wait(250)
     assert sent == [("a", 1)]
+
+
+def test_worker_batches_queued_controls(qtbot):
+    """佇列裡連續的參數指令要合併成一次 set_controls，同一個 key 只送最後的值。"""
+    from edgelens.core.controls import ControlResult
+    from edgelens.gui.workers import SourceWorker
+    from edgelens.sources.base import SourceInfo
+
+    calls = []
+
+    class Stub:
+        def set_controls(self, changes):
+            calls.append(dict(changes))
+            return {k: ControlResult(ok=True, value=v, verified=True) for k, v in changes.items()}
+
+    worker = SourceWorker(SourceInfo(kind="synthetic", id="synthetic:t", name="t"))
+    worker._source = Stub()
+    got = []
+    worker.controlResult.connect(lambda k, r: got.append((k, r.value)))
+    worker.set_control("brightness", 1)
+    worker.set_control("noise", 5)
+    worker.set_control("brightness", 3)
+    worker.set_pipeline({"version": 1, "steps": []})
+    worker.set_control("gray", True)
+    worker._drain()
+    assert calls == [{"noise": 5, "brightness": 3}, {"gray": True}]
+    assert sorted(got) == [("brightness", 3), ("gray", True), ("noise", 5)]
