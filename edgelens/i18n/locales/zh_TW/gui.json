@@ -114,5 +114,7 @@
   "gui.workspace.intro": "工作區是存放所有專案的資料夾。",
   "gui.workspace.cloud_warning": "注意：這個資料夾在 {provider} 的同步範圍內。雲端同步可能把照片移到雲端或讓檔案消失，建議改放在電腦本機的其他位置。你仍然可以選擇這裡。",
   "gui.workspace.cannot_create": "無法建立這個資料夾：{error}",
-  "gui.list_sep": "、"
+  "gui.list_sep": "、",
+  "gui.control.browse_file": "選擇檔案…",
+  "gui.control.browse_folder": "選擇資料夾…"
 }

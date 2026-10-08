@@ -210,6 +210,26 @@ SOURCES: Registry[FrameSource] = Registry("sources", FrameSource)
 register_source = SOURCES.register
 
 
+def secret_param_keys(kind: str) -> set[str]:
+    """這種來源的 param_specs 中標了 extra["secret"]（例如密碼）的參數鍵。"""
+    cls = SOURCES.find(kind)
+    if cls is None:
+        return set()
+    try:
+        return {s.key for s in cls.param_specs() if s.extra.get("secret")}
+    except Exception:  # noqa: BLE001 - 外掛來源的 param_specs 出錯時當作沒有秘密參數
+        return set()
+
+
+def info_for_storage(info: SourceInfo) -> dict[str, Any]:
+    """要寫進設定檔（最近使用、上次開啟的相機）的 SourceInfo：去掉密碼等秘密參數。
+    設定檔是純文字，也可能被「診斷資訊」打包給別人，所以密碼不存；重新開啟時要再輸入。"""
+    d = info.to_dict()
+    for key in secret_param_keys(info.kind):
+        d["params"].pop(key, None)
+    return d
+
+
 def create_source(info: SourceInfo) -> FrameSource:
     """依 SourceInfo.kind 建立對應的來源物件（尚未開啟）。"""
     return SOURCES.get(info.kind)(info)

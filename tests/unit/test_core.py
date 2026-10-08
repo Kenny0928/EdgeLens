@@ -262,3 +262,15 @@ def test_pipeline_survives_failing_step(bgr_image, make_frame):
     assert np.array_equal(res.image, bgr_image)
     with pytest.raises(ValueError):
         Pipeline.from_dict({"version": 99, "steps": []})
+
+
+def test_info_for_storage_strips_secrets():
+    from edgelens.core.registry import discover
+    from edgelens.sources.base import SourceInfo, info_for_storage
+
+    discover()
+    info = SourceInfo(kind="mjpeg", id="mjpeg:http://cam/video", name="cam",
+                      params={"url": "http://cam/video", "username": "u", "password": "p@ss"})
+    d = info_for_storage(info)
+    assert "password" not in d["params"] and d["params"]["username"] == "u"
+    assert info.params["password"] == "p@ss"  # 原物件不受影響

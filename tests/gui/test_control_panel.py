@@ -102,3 +102,25 @@ def test_enum_option_text_translated(panel):
 
     assert panel.row("e").widget.itemText(0) == i18n.tr("control.synthetic.pattern.bars")
     assert panel.row("e").widget.itemText(1) == "Bee"
+
+
+def test_str_browse_button_and_secret(qtbot, monkeypatch):
+    from PySide6.QtWidgets import QFileDialog, QLineEdit, QPushButton
+
+    from edgelens.core.controls import ControlSpec, ControlType
+    from edgelens.gui.control_panel import ControlPanel
+
+    panel = ControlPanel()
+    qtbot.addWidget(panel)
+    specs = [ControlSpec("path", ControlType.STR, label="path", extra={"browse": "folder"}),
+             ControlSpec("password", ControlType.STR, label="pw", extra={"secret": True})]
+    panel.set_specs(specs, {"path": "", "password": ""})
+    got = []
+    panel.valueChanged.connect(lambda k, v: got.append((k, v)))
+    monkeypatch.setattr(QFileDialog, "getExistingDirectory", staticmethod(lambda *a, **k: "/tmp/影像"))
+    row = panel.row("path")
+    row.widget.findChild(QPushButton).click()
+    assert got == [("path", "/tmp/影像")] and panel.values()["path"] == "/tmp/影像"
+    panel.set_values({"path": "/x"})
+    assert panel.values()["path"] == "/x"
+    assert panel.row("password").editor.echoMode() == QLineEdit.EchoMode.Password

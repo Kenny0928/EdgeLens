@@ -18,11 +18,13 @@ from PySide6.QtWidgets import (
     QColorDialog,
     QComboBox,
     QDoubleSpinBox,
+    QFileDialog,
     QFormLayout,
     QGroupBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QMenu,
     QPushButton,
     QSlider,
     QSpinBox,
@@ -82,7 +84,20 @@ class _Row:
             edit = QLineEdit()
             self._last_text = ""
             edit.editingFinished.connect(lambda: self._text_done(edit))
+            if spec.extra.get("secret"):
+                edit.setEchoMode(QLineEdit.EchoMode.Password)
             self.editor = self.widget = edit
+            browse = spec.extra.get("browse")
+            if browse:
+                # extra["browse"]："file"、"folder" 或 "file_or_folder"：旁邊加「瀏覽…」按鈕
+                box = QWidget()
+                row = QHBoxLayout(box)
+                row.setContentsMargins(0, 0, 0, 0)
+                row.addWidget(edit, 1)
+                btn = QPushButton(tr("common.browse"))
+                btn.clicked.connect(lambda: self._browse(edit, str(browse), btn))
+                row.addWidget(btn)
+                self.widget = box
         elif t == ControlType.COLOR:
             btn = QPushButton()
             btn.setMinimumWidth(80)
@@ -93,6 +108,24 @@ class _Row:
             btn = QPushButton(spec_label(spec))
             btn.clicked.connect(lambda: self.panel.actionTriggered.emit(spec.key))
             self.editor = self.widget = btn
+
+    def _browse(self, edit: QLineEdit, mode: str, anchor: QWidget) -> None:
+        start = edit.text() or ""
+        if mode == "file_or_folder":
+            menu = QMenu(anchor)
+            act_file = menu.addAction(tr("gui.control.browse_file"))
+            act_dir = menu.addAction(tr("gui.control.browse_folder"))
+            chosen = menu.exec(anchor.mapToGlobal(anchor.rect().bottomLeft()))
+            if chosen not in (act_file, act_dir):
+                return
+            mode = "file" if chosen is act_file else "folder"
+        if mode == "folder":
+            path = QFileDialog.getExistingDirectory(self.panel, tr("gui.control.browse_folder"), start)
+        else:
+            path, _ = QFileDialog.getOpenFileName(self.panel, tr("gui.control.browse_file"), start)
+        if path:
+            edit.setText(path)
+            self._text_done(edit)
 
     def _text_done(self, edit: QLineEdit) -> None:
         if edit.text() != self._last_text:
@@ -194,7 +227,7 @@ class _Row:
                         box.setCurrentIndex(i)
                         break
             elif t == ControlType.STR:
-                self.widget.setText(str(value))  # type: ignore[attr-defined]
+                self.editor.setText(str(value))  # type: ignore[attr-defined]
                 self._last_text = str(value)
             elif t == ControlType.COLOR:
                 self._color = str(value).upper()
@@ -214,7 +247,7 @@ class _Row:
         if t == ControlType.ENUM:
             return self.widget.currentData()  # type: ignore[attr-defined]
         if t == ControlType.STR:
-            return self.widget.text()  # type: ignore[attr-defined]
+            return self.editor.text()  # type: ignore[attr-defined]
         if t == ControlType.COLOR:
             return self._color
         return None

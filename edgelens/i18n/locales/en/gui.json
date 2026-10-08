@@ -114,5 +114,7 @@
   "gui.workspace.intro": "The workspace is the folder that holds all your projects.",
   "gui.workspace.cloud_warning": "Warning: this folder is synced by {provider}. Cloud sync may move photos to the cloud or hide files. A local folder elsewhere is safer. You can still choose it.",
   "gui.workspace.cannot_create": "Cannot create this folder: {error}",
-  "gui.list_sep": ", "
+  "gui.list_sep": ", ",
+  "gui.control.browse_file": "Choose a file…",
+  "gui.control.browse_folder": "Choose a folder…"
 }

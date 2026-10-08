@@ -44,7 +44,7 @@ from edgelens.gui.video_view import VideoView
 from edgelens.gui.workers import FramePacket, SourceHandle
 from edgelens.gui.workspace_dialog import WorkspaceDialog
 from edgelens.i18n import tr
-from edgelens.sources.base import SourceInfo
+from edgelens.sources.base import SourceInfo, info_for_storage
 
 log = logging.getLogger(__name__)
 
@@ -697,14 +697,14 @@ class MainWindow(QMainWindow):
     def _remember_source(self, info: SourceInfo) -> None:
         s = self.ctx.settings
         recent = [d for d in (s.get("recent.sources", []) or []) if isinstance(d, dict) and d.get("id") != info.id]
-        recent.insert(0, info.to_dict())
+        recent.insert(0, info_for_storage(info))
         s.set("recent.sources", recent[:10])
         self._save_session()
 
     def _save_session(self) -> None:
         if self._closing:
             return
-        self.ctx.settings.set("session.sources", [h.info.to_dict() for h in self.ctx.sources])
+        self.ctx.settings.set("session.sources", [info_for_storage(h.info) for h in self.ctx.sources])
         self.ctx.save_settings_later()
 
     def _offer_reopen(self) -> None:
@@ -728,7 +728,7 @@ class MainWindow(QMainWindow):
             event.accept()
             return
         s = self.ctx.settings
-        s.set("session.sources", [h.info.to_dict() for h in self.ctx.sources])
+        s.set("session.sources", [info_for_storage(h.info) for h in self.ctx.sources])
         self._closing = True
         s.set("ui.geometry", bytes(self.saveGeometry().toBase64()).decode("ascii"))
         for panel in self._panels:
