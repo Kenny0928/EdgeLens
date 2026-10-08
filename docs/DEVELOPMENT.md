@@ -100,7 +100,7 @@ $PY -m edgelens                       # 開啟介面
 | 2 | 檔案、webcam 來源、相機列舉 | `sources/file.py`、`sources/webcam.py`、`sources/enumerate.py` |
 | 3 | MJPEG、RTSP、ESP32-CAM | `sources/mjpeg.py`、`sources/rtsp.py`、`sources/esp32cam.py` |
 | 4 | K210 | `sources/k210/` |
-| 5 | 影像處理步驟、預設組合、邊緣裝置模擬 | `processing/steps/`、`processing/presets/` |
+| 5 | 影像處理步驟、預設組合、邊緣裝置模擬、取色 | `processing/steps/`、`processing/presets/`、`processing/library.py`、`processing/colorpick.py` |
 | 6a | 前處理、NMS、YOLO 解碼器、自動判斷 | `inference/preprocess.py`、`inference/nms.py`、`inference/autodetect.py`、`inference/decoders/` |
 | 6b | 推論後端、runner、測試模型 | `inference/backends/`、`inference/runner.py`、`tests/fixtures/make_onnx.py`、`tools/fetch_test_models.py`、`docs/MODEL_SUPPORT.md` |
 | 7 | 資料集、指標 | `dataset/`、`metrics/` |

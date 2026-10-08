@@ -42,7 +42,8 @@ from edgelens.core.results import Overlay
 PIPELINE_VERSION = 1
 
 # 分類順序也是 GUI「新增步驟」選單的順序
-CATEGORIES = ("geometry", "color", "filter", "threshold", "morph", "edge", "motion", "edge_sim", "custom")
+CATEGORIES = ("geometry", "color", "filter", "threshold", "morph", "edge", "analyze", "motion", "edge_sim",
+              "custom")
 
 
 @dataclass

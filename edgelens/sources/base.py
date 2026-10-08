@@ -173,7 +173,11 @@ class FrameSource(ABC):
         return ControlResult.failed(f"不支援參數 {key}")
 
     def run_action(self, key: str, **kwargs: Any) -> ControlResult:
-        """執行 ACTION 參數（例如「上傳模型」）。耗時的動作可以阻塞，worker 會在背景執行緒呼叫。"""
+        """執行 ACTION 參數（例如「上傳模型」）。耗時的動作可以阻塞，worker 會在背景執行緒呼叫。
+
+        慣例參數：progress(比例 0–1, 說明文字) 回報進度；cancel() 回傳 True 表示使用者按了取消。
+        動作需要的其他輸入（例如模型檔路徑）也用 kwargs 傳入，鍵名寫在該 ControlSpec.extra["inputs"]。
+        """
         return ControlResult.failed(f"不支援動作 {key}")
 
     def capabilities(self) -> SourceCapabilities:
