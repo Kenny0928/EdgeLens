@@ -1,0 +1,11 @@
+{
+  "dataset.quality.blurry": "照片不夠清楚，請固定相機並重新對焦。",
+  "dataset.quality.dark": "照片太暗，請增加照明。",
+  "dataset.quality.bright": "照片太亮，請降低曝光或避開強光。",
+  "dataset.quality.low_contrast": "明暗差異太小，請調整背景或照明。",
+  "dataset.quality.overexposed": "照片過曝區域太多，請降低曝光。",
+  "dataset.quality.underexposed": "照片暗部區域太多，請增加照明。",
+  "dataset.split.small": "類別 {class_id} 只有 {count} 張照片，無法分配到所有份；請再蒐集一些照片。",
+  "dataset.split.grouped": "類別 {class_id} 的分組或張數限制了切分比例；請增加獨立拍攝的照片。",
+  "dataset.export.cancelled": "已取消匯出，尚未產生 ZIP。"
+}

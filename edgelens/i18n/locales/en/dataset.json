@@ -1,0 +1,11 @@
+{
+  "dataset.quality.blurry": "The photo is blurry. Hold the camera steady and refocus.",
+  "dataset.quality.dark": "The photo is too dark. Add more lighting.",
+  "dataset.quality.bright": "The photo is too bright. Lower exposure or avoid strong light.",
+  "dataset.quality.low_contrast": "Contrast is low. Adjust the background or lighting.",
+  "dataset.quality.overexposed": "Too much of the photo is overexposed. Lower exposure.",
+  "dataset.quality.underexposed": "Too much of the photo is dark. Add more lighting.",
+  "dataset.split.small": "Class {class_id} has only {count} photos and cannot fill every split. Collect more photos.",
+  "dataset.split.grouped": "Groups or sample counts prevent the requested ratio for class {class_id}. Collect more independent photos.",
+  "dataset.export.cancelled": "Export cancelled. No ZIP was created."
+}
