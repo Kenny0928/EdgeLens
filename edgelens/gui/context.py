@@ -37,6 +37,7 @@ class AppContext(QObject):
         self.project = project
         self.sources: list[SourceHandle] = []
         self.active_source: SourceHandle | None = None
+        self.inference = None   # InferenceManager（主視窗建立；面板用它管理背景推論）
         # i18n 的通知可能來自任何執行緒；經過自己的 signal 轉成 GUI 執行緒（排隊）觸發
         self._languageBridge.connect(self.languageChanged)
         self._remove_listener = i18n.on_language_changed(self._on_i18n_changed)

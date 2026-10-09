@@ -295,3 +295,15 @@ def test_default_workspace_avoids_cloud_synced_documents(tmp_path, monkeypatch):
     assert paths.default_workspace() == tmp_path / "EdgeLens"
     monkeypatch.setattr(paths, "documents_dir", lambda: tmp_path / "Docs")
     assert paths.default_workspace() == tmp_path / "Docs" / "EdgeLens"
+
+
+def test_onnxruntime_telemetry_disabled_before_import():
+    """匯入 edgelens 就要關掉 onnxruntime 遙測（必須在匯入 onnxruntime 之前設定環境變數）。"""
+    import os
+    import subprocess
+    import sys
+
+    code = "import edgelens, os; print(os.environ.get('ORT_DISABLE_TELEMETRY'))"
+    env = {k: v for k, v in os.environ.items() if k != "ORT_DISABLE_TELEMETRY"}
+    out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, env=env, check=True)
+    assert out.stdout.strip() == "1"

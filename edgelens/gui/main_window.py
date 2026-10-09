@@ -23,7 +23,6 @@ from PySide6.QtWidgets import (
     QPushButton,
     QSplitter,
     QStackedLayout,
-    QTabWidget,
     QToolBar,
     QVBoxLayout,
     QWidget,
@@ -36,6 +35,8 @@ from edgelens.core.project import Project, Workspace
 from edgelens.core.registry import load_plugins
 from edgelens.core.results import InferenceResult
 from edgelens.gui.context import AppContext
+from edgelens.gui.inference import InferenceManager, make_color_resolver
+from edgelens.gui.panel_switcher import PanelSwitcher
 from edgelens.gui.panels import discover_panels
 from edgelens.gui.panels.base import Panel
 from edgelens.gui.project_dialog import ProjectDialog
@@ -183,14 +184,14 @@ class MainWindow(QMainWindow):
         self.grid = VideoGrid()
         self.grid.addRequested.connect(self.add_camera_dialog)
         self.grid.activated.connect(self.set_active_handle)
-        self.tabs = QTabWidget()
-        self.tabs.setMinimumWidth(340)
+        self.tabs = PanelSwitcher()   # 右側面板：直向清單＋面板內容（面板多時橫向分頁會擠不下）
+        self.tabs.setMinimumWidth(440)
         splitter = QSplitter()
         splitter.addWidget(self.grid)
         splitter.addWidget(self.tabs)
         splitter.setStretchFactor(0, 4)
         splitter.setStretchFactor(1, 1)
-        splitter.setSizes([900, 380])
+        splitter.setSizes([820, 480])
         self.setCentralWidget(splitter)
 
         self._build_actions()
@@ -202,6 +203,12 @@ class MainWindow(QMainWindow):
         ctx.languageChanged.connect(self._on_language_changed)
         ctx.activeSourceChanged.connect(self._on_active_changed)
         ctx.statusMessage.connect(lambda text, ms: self.statusBar().showMessage(text, ms))
+
+        self.inference = InferenceManager(self)      # 背景推論；面板在建立時就會用到，所以要在載入面板之前
+        ctx.inference = self.inference
+        self._color_resolver = make_color_resolver(ctx)
+        self.inference.resultReady.connect(self._on_inference_result)
+        self.inference.sessionsChanged.connect(self._on_sessions_changed)
 
         self._load_panels()
         self.resize(1280, 760)
@@ -261,6 +268,10 @@ class MainWindow(QMainWindow):
         view = self.grid.view_for(handle)
         if view is not None:
             view.set_inference(results)
+
+    def last_inference(self, handle: SourceHandle) -> InferenceResult | None:
+        """該相機主要模型最近一次的推論結果（拍照存 metadata 用）；沒有模型時為 None。"""
+        return self.inference.last_result(handle)
 
     def show_message(self, text: str, ms: int = 4000) -> None:
         self.statusBar().showMessage(text, ms)
@@ -443,6 +454,7 @@ class MainWindow(QMainWindow):
         self.ctx.set_active_source(handle)
 
     def close_source(self, handle: SourceHandle) -> None:
+        self.inference.remove_for_handle(handle)
         handle.stop(STOP_TIMEOUT)
         self._hud_extra.pop(handle, None)
         self.grid.remove_view(handle)
@@ -489,6 +501,29 @@ class MainWindow(QMainWindow):
         self.act_close_camera.setEnabled(h is not None)
         self.act_retry.setEnabled(h is not None and h.state == "error")
         self.act_add_camera.setEnabled(len(self.ctx.sources) < MAX_SOURCES)
+
+    # ---- 推論 -------------------------------------------------------------------
+    def _on_inference_result(self, handle: SourceHandle, session: Any, result: InferenceResult) -> None:
+        self._show_inference(handle)
+
+    def _on_sessions_changed(self) -> None:
+        for h in self.ctx.sources:
+            self._show_inference(h)
+
+    def _show_inference(self, handle: SourceHandle) -> None:
+        """把該相機所有模型的最新結果畫到畫面上，並在 HUD 加一行推論耗時。"""
+        view = self.grid.view_for(handle)
+        if view is None:
+            return
+        sessions = [s for s in self.inference.sessions_for(handle) if s.last_result is not None]
+        view.set_color_resolver(self._color_resolver)
+        self.set_inference(handle, [s.last_result for s in sessions] or None)
+        parts = []
+        for s in sessions:
+            st = s.stats
+            parts.append(tr("gui.model.hud", ms=f"{s.last_result.timings_ms.get('total', 0.0):.0f}",
+                            age=int(st["age_frames"])))
+        self.set_hud_line(handle, "infer", tr("gui.list_sep").join(parts) if parts else None)
 
     # ---- 畫面 -------------------------------------------------------------------
     def _on_frame(self, handle: SourceHandle, packet: FramePacket) -> None:
@@ -745,6 +780,7 @@ class MainWindow(QMainWindow):
         s.set("ui.geometry", bytes(self.saveGeometry().toBase64()).decode("ascii"))
         for panel in self._panels:
             self._safe(panel.shutdown)
+        self.inference.shutdown(STOP_TIMEOUT)
         handles = list(self.ctx.sources)
         for h in handles:
             h.request_stop()  # 先通知全部，再逐一等待，總時間才不會變成相加

@@ -20,6 +20,27 @@ def _dims(shape: Any) -> tuple[int | None, ...]:
     return tuple(int(d) if isinstance(d, (int, np.integer)) and d > 0 else None for d in (shape or ()))
 
 
+
+def import_onnxruntime():
+    """匯入 onnxruntime 並關閉它的遙測（telemetry）。
+
+    onnxruntime 1.2x 起在 macOS／Linux 也會啟動微軟的遙測上傳執行緒：一來教學電腦不應該把
+    使用資料傳出去，二來程式結束時這條執行緒和收尾程式互相干擾，偶爾會讓 Python 當掉
+    （libc++abi: recursive_mutex lock failed）。環境變數 ORT_DISABLE_TELEMETRY 已在
+    edgelens/__init__.py 設定（要在匯入前才有效），這裡再呼叫一次 API 當保險。"""
+    import os
+
+    os.environ.setdefault("ORT_DISABLE_TELEMETRY", "1")
+    import onnxruntime as ort
+
+    disable = getattr(ort, "disable_telemetry_events", None)
+    if disable is not None:
+        try:
+            disable()
+        except Exception:  # noqa: BLE001 - 舊版或特殊平台不支援時忽略
+            pass
+    return ort
+
 @register_backend
 class OnnxRuntimeBackend(Backend):
     kind: ClassVar[str] = "onnxrt"
@@ -42,8 +63,7 @@ class OnnxRuntimeBackend(Backend):
         if not ok:
             raise InferenceError(tr("backend.err.unavailable", name=tr(self.display_name_key), reason=reason),
                                  hint=tr("backend.err.install_hint"))
-        import onnxruntime as ort
-
+        ort = import_onnxruntime()
         data = read_model_bytes(self.card.model_path)
         opts = ort.SessionOptions()
         opts.intra_op_num_threads = self._threads

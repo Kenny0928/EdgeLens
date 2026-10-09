@@ -81,6 +81,7 @@ class VideoView(QWidget):
         self._results: list[InferenceResult] = []
         self._class_colors: list[str] = list(DEFAULT_COLORS)
         self._class_names: list[str] = []
+        self._color_resolver = None   # 選用：(result, class_id, label) -> "#RRGGBB" | None
         self._roi: tuple[int, int, int, int] | None = None
         self._hud: list[str] = []
         self._show_hud = True
@@ -116,6 +117,11 @@ class VideoView(QWidget):
             self._results = [results]
         else:
             self._results = list(results)
+        self.update()
+
+    def set_color_resolver(self, resolver) -> None:
+        """選用：自訂推論結果的顏色（例如模型類別名稱對應到專案類別）。傳 None 還原成依 class_id 上色。"""
+        self._color_resolver = resolver
         self.update()
 
     def set_class_colors(self, colors: list[str]) -> None:
@@ -238,6 +244,16 @@ class VideoView(QWidget):
             p.setBrush(Qt.BrushStyle.NoBrush)
             p.drawRect(QRectF(self._drag_start, self._drag_now).normalized())
 
+    def _result_color(self, res: InferenceResult, class_id: int, label: str) -> QColor:
+        if self._color_resolver is not None:
+            try:
+                value = self._color_resolver(res, class_id, label)
+            except Exception:  # noqa: BLE001 - 上色函式出錯時退回預設顏色，不能讓畫面壞掉
+                value = None
+            if value:
+                return _color(value)
+        return self._class_color(class_id)
+
     def _class_color(self, class_id: int) -> QColor:
         colors = self._class_colors or list(DEFAULT_COLORS)
         return _color(colors[class_id % len(colors)])
@@ -312,10 +328,10 @@ class VideoView(QWidget):
         # 推論結果
         banner_y = None
         for res in self._results:
-            dashed = res.where == "device"
+            dashed = res.where == "device" or bool(res.extra.get("dashed"))
             if res.kind == "detect":
                 for det in res.detections:
-                    col = self._class_color(det.class_id)
+                    col = self._result_color(res, det.class_id, det.label)
                     pen = QPen(col, 3, Qt.PenStyle.DashLine if dashed else Qt.PenStyle.SolidLine)
                     p.setPen(pen)
                     p.setBrush(Qt.BrushStyle.NoBrush)
@@ -326,9 +342,9 @@ class VideoView(QWidget):
                     label(a.x(), a.y(), f"{name} {det.score:.2f}", col)
             elif res.kind == "classify" and res.top_k:
                 best = res.top_k[0] if len(res.top_k) == 1 else max(res.top_k, key=lambda c: c.score)
-                col = self._class_color(best.class_id)
+                col = self._result_color(res, best.class_id, best.label)
                 name = best.label or self._name_of(best.class_id)
-                tag = "[device] " if dashed else ""
+                tag = "[device] " if res.where == "device" else ""
                 if banner_y is None:
                     banner_y = oy + (self._image.height() * s if self._image is not None else 0) - 6
                 label(ox + 6, banner_y, f"{tag}{name} {best.score:.2f}", col)  # 標籤底邊對齊 banner_y

@@ -6,11 +6,13 @@
 
 from __future__ import annotations
 
+import atexit
 import hashlib
 import logging
 import subprocess
 import sys
 import threading
+import weakref
 from collections import OrderedDict
 from pathlib import Path
 
@@ -88,6 +90,20 @@ def make_thumb(path: Path, size: int) -> np.ndarray | None:
     return img
 
 
+IDLE_EXIT_S = 2.0
+_live_loaders: weakref.WeakSet = weakref.WeakSet()
+
+
+@atexit.register
+def _stop_all_loaders() -> None:
+    """程式結束前停掉還沒停的縮圖執行緒（見 ThumbLoader 的說明）。"""
+    for loader in list(_live_loaders):
+        try:
+            loader.stop()
+        except RuntimeError:   # Qt 物件已經被刪除
+            pass
+
+
 class ThumbLoader(QObject):
     """背景產生縮圖。後送先做（最近捲到的先載入），完成後用 signal 回到 GUI 執行緒。"""
 
@@ -103,10 +119,11 @@ class ThumbLoader(QObject):
         self._pending: set[str] = set()
         self._cond = threading.Condition()
         self._stopped = False
-        self._threads = [threading.Thread(target=self._run, daemon=True, name=f"thumb-{i}")
-                         for i in range(WORKERS)]
-        for t in self._threads:
-            t.start()
+        # 執行緒有工作才啟動、閒置一會兒就自己結束：沒有被 stop() 的 loader（例如視窗沒正常關）
+        # 也不會留下執行緒。程式結束時還在跑的執行緒若正在 OpenCV／Qt 的 C++ 程式裡，
+        # 會在直譯器收尾時當掉（libc++abi: recursive_mutex lock failed）。
+        self._threads: list[threading.Thread] = []
+        _live_loaders.add(self)
 
     def request(self, key: str, path: Path) -> None:
         with self._cond:
@@ -115,6 +132,11 @@ class ThumbLoader(QObject):
             self._pending.add(key)
             self._stack.append((key, path))
             self._cond.notify()
+            self._threads = [t for t in self._threads if t.is_alive()]
+            if len(self._threads) < WORKERS:
+                t = threading.Thread(target=self._run, daemon=True, name=f"thumb-{len(self._threads)}")
+                self._threads.append(t)
+                t.start()
 
     def pending(self) -> int:
         with self._cond:
@@ -125,15 +147,22 @@ class ThumbLoader(QObject):
             self._stopped = True
             self._stack.clear()
             self._cond.notify_all()
-        for t in self._threads:
-            t.join(timeout=2)
+            threads = list(self._threads)
+        for t in threads:
+            if t is not threading.current_thread():
+                t.join(timeout=2)
+        _live_loaders.discard(self)
 
     def _run(self) -> None:
         while True:
             with self._cond:
-                while not self._stack and not self._stopped:
-                    self._cond.wait()
+                if not self._stack and not self._stopped:
+                    self._cond.wait(timeout=IDLE_EXIT_S)
                 if self._stopped:
+                    return
+                if not self._stack:   # 閒置太久：結束這條執行緒，下次有工作再開
+                    me = threading.current_thread()
+                    self._threads = [t for t in self._threads if t is not me]
                     return
                 key, path = self._stack.pop()
             image = self._load(key, path)

@@ -189,6 +189,9 @@ class BenchPanel(Panel):
         self._timer.setInterval(100)
         self._timer.timeout.connect(self._tick)
         self._timer.start()
+        manager = getattr(ctx, "inference", None)   # 推論結果記進錄影／數據 CSV
+        if manager is not None:
+            manager.resultReady.connect(self._on_inference_result)
         self.retranslate()
         self.on_active_source_changed(ctx.active_source)
 
@@ -574,6 +577,9 @@ class BenchPanel(Panel):
                 image = qimage_to_bgr(view.render_annotated())   # render_annotated 只能在 GUI 執行緒
         rec.add_packet(packet, image)
 
+    def _on_inference_result(self, handle: Any, _session: Any, result: Any) -> None:
+        self.add_inference(handle, result.frame_seq, result)
+
     def add_inference(self, handle: SourceHandle | None, seq: int, result: Any) -> None:
         """推論面板每算完一張就呼叫，結果會記進錄影／數據 CSV（handle 是該推論所屬的相機）。"""
         for rec, h in ((self._rec, self._rec_handle), (self._log, self._log_tap.handle if self._log_tap else None)):
@@ -858,6 +864,12 @@ class BenchPanel(Panel):
     def shutdown(self) -> None:
         """關閉前停掉所有進行中的工作並還原參數，錄影檔案一定要正確關閉。"""
         self._timer.stop()
+        manager = getattr(self.ctx, "inference", None)
+        if manager is not None:
+            try:
+                manager.resultReady.disconnect(self._on_inference_result)
+            except (RuntimeError, TypeError):
+                pass
         if self._sweep is not None:
             self.stop_sweep(cancelled=True)
         if self._long is not None:
