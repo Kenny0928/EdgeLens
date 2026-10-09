@@ -221,12 +221,33 @@ def secret_param_keys(kind: str) -> set[str]:
         return set()
 
 
+def strip_url_password(value: str) -> str:
+    """網址裡的密碼（例如 rtsp://帳號:密碼@位址）去掉，只留帳號；不是網址或沒有密碼時原樣回傳。"""
+    from urllib.parse import urlsplit, urlunsplit
+
+    if "://" not in value or "@" not in value:
+        return value
+    try:
+        parts = urlsplit(value)
+        if parts.password is None:
+            return value
+        host = parts.netloc.rsplit("@", 1)[1]
+        user = parts.username or ""
+        return urlunsplit(parts._replace(netloc=f"{user}@{host}" if user else host))
+    except ValueError:
+        return value
+
+
 def info_for_storage(info: SourceInfo) -> dict[str, Any]:
-    """要寫進設定檔（最近使用、上次開啟的相機）的 SourceInfo：去掉密碼等秘密參數。
-    設定檔是純文字，也可能被「診斷資訊」打包給別人，所以密碼不存；重新開啟時要再輸入。"""
+    """要寫進設定檔（最近使用、上次開啟的相機）的 SourceInfo：去掉密碼等秘密參數，
+    以及網址裡的密碼。設定檔是純文字，也可能被「診斷資訊」打包給別人，所以密碼不存；
+    重新開啟時要再輸入。"""
     d = info.to_dict()
     for key in secret_param_keys(info.kind):
         d["params"].pop(key, None)
+    for key, value in list(d["params"].items()):
+        if isinstance(value, str):
+            d["params"][key] = strip_url_password(value)
     return d
 
 

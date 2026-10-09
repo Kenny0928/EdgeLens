@@ -274,3 +274,13 @@ def test_info_for_storage_strips_secrets():
     d = info_for_storage(info)
     assert "password" not in d["params"] and d["params"]["username"] == "u"
     assert info.params["password"] == "p@ss"  # 原物件不受影響
+
+
+def test_info_for_storage_strips_url_passwords():
+    from edgelens.sources.base import SourceInfo, info_for_storage, strip_url_password
+
+    assert strip_url_password("rtsp://admin:1234@192.168.1.5:554/live") == "rtsp://admin@192.168.1.5:554/live"
+    assert strip_url_password("rtsp://192.168.1.5/live") == "rtsp://192.168.1.5/live"
+    assert strip_url_password("C:/影片/a.mp4") == "C:/影片/a.mp4"
+    info = SourceInfo(kind="rtsp", id="rtsp:x", name="x", params={"url": "rtsp://u:secret@cam/1", "transport": "tcp"})
+    assert "secret" not in str(info_for_storage(info))

@@ -228,3 +228,30 @@ def test_real_esp32cam():
     with Esp32CamSource(Esp32CamSource.info_from_params({"ip": ip})) as src:
         assert wait_frame(src, lambda f: True, seconds=10) is not None
         assert src.controls()
+
+
+def test_demo_source_second_client_falls_back_to_capture():
+    """模擬 ESP32-CAM 的 #1、#2 連到同一台模擬板子：#2 因為串流被占用而改抓單張。"""
+    import time
+
+    from edgelens.sources.esp32cam import Esp32CamDemoSource
+
+    one, two = (Esp32CamDemoSource(i) for i in Esp32CamDemoSource.discover())
+    assert one.source_id != two.source_id
+    one.open()
+    try:
+        assert one.read(timeout=3.0) is not None
+        two.open()
+        try:
+            deadline = time.monotonic() + 8
+            mode = None
+            while time.monotonic() < deadline:
+                f = two.read(timeout=1.0)
+                mode = two.capabilities().extra.get("mode")
+                if f is not None and mode != "stream":
+                    break
+            assert mode != "stream"
+        finally:
+            two.close()
+    finally:
+        one.close()

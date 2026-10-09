@@ -84,5 +84,7 @@
   "source.rtsp.err.bad_url": "網址看起來不對：{target}。要以 rtsp:// 開頭，例如 rtsp://192.168.1.20:554/live。",
   "source.rtsp.err.open": "打不開影像串流 {target}。請檢查：網址有沒有打錯、電腦和相機是不是連到同一個 Wi-Fi、相機有沒有開機。",
   "source.rtsp.hint.url": "也可以填影片檔的路徑來練習。",
-  "source.rtsp.hint.check": "可以先用 VLC 或 ffplay 開同一個網址，確認串流本身正常。"
+  "source.rtsp.hint.check": "可以先用 VLC 或 ffplay 開同一個網址，確認串流本身正常。",
+  "source.esp32cam_demo.name": "模擬 ESP32-CAM（不需要硬體）",
+  "source.esp32cam_demo.desc": "在這台電腦上模擬一台燒錄了 CameraWebServer 的 ESP32-CAM。沒有板子也能練習 ESP32-CAM 的參數面板與連線行為。"
 }

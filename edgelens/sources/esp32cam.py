@@ -326,3 +326,43 @@ class Esp32CamSource(HttpJpegSource):
             resolutions = [(FRAME_SIZES[v][1], FRAME_SIZES[v][2]) for v in fs.option_values if v in FRAME_SIZES]
         return SourceCapabilities(provides_jpeg=True, live_controls=True, resolutions=resolutions, max_fps=25.0,
                                   extra={"mode": self._mode_now, "stream_port": self._stream_port})
+
+
+@register_source
+class Esp32CamDemoSource(Esp32CamSource):
+    """模擬的 ESP32-CAM：在這台電腦上啟動一個假的 CameraWebServer（`_fake_http`），
+    沒有硬體也能練習 ESP32-CAM 的參數面板、改解析度、串流被占用時改抓單張等行為。
+    開兩台模擬相機時，第二台會因為「同時只能一個串流」而改抓單張，正好可以示範。"""
+
+    kind = "esp32cam_demo"
+    display_name_key = "source.esp32cam_demo.name"
+    description_key = "source.esp32cam_demo.desc"
+    discover_is_safe = True
+    manual_add = False
+
+    @classmethod
+    def discover(cls, timeout: float = 2.0) -> list[SourceInfo]:
+        # 兩個項目連到同一台模擬板子：都開起來時，第二個會因為「同時只能一個串流」改抓單張
+        return [SourceInfo(kind=cls.kind, id=f"esp32cam_demo:{n}", name=f"{tr('source.esp32cam_demo.name')} #{n}",
+                           params={"n": n}, detail="127.0.0.1") for n in (1, 2)]
+
+    @classmethod
+    def param_specs(cls) -> list[ControlSpec]:
+        return []
+
+    @classmethod
+    def info_from_params(cls, params: dict[str, Any]) -> SourceInfo:
+        return cls.discover()[0]
+
+    @classmethod
+    def contract_fixture(cls, tmp_path: Any) -> SourceInfo | None:
+        return cls.discover()[0]
+
+    def open(self) -> None:
+        if self.is_open:
+            return
+        from edgelens.sources._fake_http import shared_server
+
+        srv = shared_server("esp32cam")   # 埠號每次啟動都不同，所以在開啟時才決定
+        self._host, self._port, self._stream_port = "127.0.0.1", srv.port, srv.stream_port
+        super().open()

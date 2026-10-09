@@ -84,5 +84,7 @@
   "source.rtsp.err.bad_url": "This URL does not look right: {target}. It should start with rtsp://, for example rtsp://192.168.1.20:554/live.",
   "source.rtsp.err.open": "Cannot open the video stream {target}. Check: is the URL typed correctly, are the computer and the camera on the same Wi-Fi, is the camera powered on?",
   "source.rtsp.hint.url": "You can also enter a video file path to practice.",
-  "source.rtsp.hint.check": "Try opening the same URL in VLC or ffplay first to check the stream itself works."
+  "source.rtsp.hint.check": "Try opening the same URL in VLC or ffplay first to check the stream itself works.",
+  "source.esp32cam_demo.name": "Simulated ESP32-CAM (no hardware)",
+  "source.esp32cam_demo.desc": "Simulates an ESP32-CAM running CameraWebServer on this computer, so you can practise the ESP32-CAM controls and behaviour without a board."
 }
