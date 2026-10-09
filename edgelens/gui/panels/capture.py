@@ -51,6 +51,7 @@ from edgelens.dataset.stats import dataset_stats
 from edgelens.dataset.writer import DatasetWriter, shared_writer
 from edgelens.gui.capture_tools import StillDetector, new_id, thresholds_from_settings
 from edgelens.gui.panels.base import Panel
+from edgelens.gui.stable import StableLabel
 from edgelens.gui.workers import FramePacket, SourceHandle
 from edgelens.i18n import current_language, tr
 from edgelens.metrics.quality import measure, verdict
@@ -306,22 +307,19 @@ class CapturePanel(Panel):
         self.all_button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.all_button.clicked.connect(lambda: self.capture_all())
         lay.addWidget(self.all_button)
-        self.saved_label = QLabel()
-        self.saved_label.setWordWrap(True)
+        self.saved_label = StableLabel(1)
         lay.addWidget(self.saved_label)
 
         # 品質
         self.quality_box = QGroupBox()
         ql = QVBoxLayout(self.quality_box)
-        self.quality_label = QLabel("-")
-        self.quality_label.setWordWrap(True)
-        self.quality_verdict = QLabel()
-        self.quality_verdict.setWordWrap(True)
+        # 品質每秒更新幾次、相近照片提醒拍照時才出現：高度都固定，版面不跳動
+        self.quality_label = StableLabel(1, "-")
+        self.quality_verdict = StableLabel(2)
         self.block_check = QCheckBox()
         self.block_check.setChecked(bool(self._s("block_bad_quality", False)))
         self.block_check.toggled.connect(lambda v: self._set("block_bad_quality", bool(v)))
-        self.similar_label = QLabel()
-        self.similar_label.setWordWrap(True)
+        self.similar_label = StableLabel(2)
         self.similar_label.setStyleSheet("color:#C77700;font-weight:bold;")
         for w in (self.quality_label, self.quality_verdict, self.block_check, self.similar_label):
             ql.addWidget(w)
@@ -377,8 +375,7 @@ class CapturePanel(Panel):
         form.addRow(self.still_threshold_label, self.still_threshold)
         form.addRow(self.still_frames_label, self.still_frames)
         form.addRow(self.still_state)
-        self.mode_status = QLabel()
-        self.mode_status.setWordWrap(True)
+        self.mode_status = StableLabel(2)
         form.addRow(self.mode_status)
         lay.addWidget(self.modes_box)
 
@@ -410,8 +407,7 @@ class CapturePanel(Panel):
         self.balance_box = QGroupBox()
         bl = QVBoxLayout(self.balance_box)
         self.balance = BalanceChart()
-        self.balance_hint = QLabel()
-        self.balance_hint.setWordWrap(True)
+        self.balance_hint = StableLabel(2)
         self.balance_hint.setStyleSheet("color:#C77700;font-weight:bold;")
         bl.addWidget(self.balance)
         bl.addWidget(self.balance_hint)
@@ -594,7 +590,6 @@ class CapturePanel(Panel):
                 hint = tr("gui.capture.balance_low", name=items[weak][0])
         self.balance.set_data(items, weak)
         self.balance_hint.setText(hint)
-        self.balance_hint.setVisible(bool(hint))
         self.balance_box.setVisible(bool(items))
 
     def count_of(self, class_id: str) -> int:
@@ -798,7 +793,6 @@ class CapturePanel(Panel):
         hit = rh.check(image) if rh is not None else None
         similar = hit is not None and hit[1] <= self.dup_distance.value()
         self.similar_label.setText(tr("gui.capture.similar") if similar else "")
-        self.similar_label.setVisible(similar)
         return similar
 
     # ---- 畫面疊加 ---------------------------------------------------------------

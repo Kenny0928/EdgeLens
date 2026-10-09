@@ -39,6 +39,7 @@ from edgelens.core.controls import ControlSpec, ControlType
 from edgelens.core.paths import safe_filename
 from edgelens.gui.panels.base import Panel
 from edgelens.gui.recorder import Recorder, RecordingResult, flatten_board, flatten_data, qimage_to_bgr
+from edgelens.gui.stable import StableLabel
 from edgelens.gui.workers import FramePacket, SourceHandle
 from edgelens.i18n import tr, tr_or
 from edgelens.metrics.csvlog import CsvLogger, write_summary_csv
@@ -255,8 +256,7 @@ class BenchPanel(Panel):
         row.addWidget(self.mode_combo)
         row.addWidget(self.record_button)
         v.addLayout(row)
-        self.record_label = QLabel()
-        self.record_label.setWordWrap(True)
+        self.record_label = StableLabel(2)   # 錄影中每 0.1 秒更新時間與列數
         v.addWidget(self.record_label)
         lay.addWidget(self.rec_box)
 
@@ -279,8 +279,7 @@ class BenchPanel(Panel):
         self.long_progress.setRange(0, 100)
         self.long_progress.hide()
         v.addWidget(self.long_progress)
-        self.long_status = QLabel()
-        self.long_status.setWordWrap(True)
+        self.long_status = StableLabel(2)
         v.addWidget(self.long_status)
         self.long_table = self._result_table()
         v.addWidget(self.long_table)
@@ -325,8 +324,7 @@ class BenchPanel(Panel):
         self.sweep_progress.setRange(0, 100)
         self.sweep_progress.hide()
         v.addWidget(self.sweep_progress)
-        self.sweep_status = QLabel()
-        self.sweep_status.setWordWrap(True)
+        self.sweep_status = StableLabel(2)
         v.addWidget(self.sweep_status)
         self.sweep_table = self._result_table()
         v.addWidget(self.sweep_table)

@@ -24,6 +24,7 @@ from edgelens.dataset.stats import dataset_stats
 from edgelens.gui.dataset_browser import DatasetBrowser, SampleModel, color_pixmap
 from edgelens.gui.export_dialog import ExportDialog
 from edgelens.gui.panels.base import Panel
+from edgelens.gui.stable import StableLabel
 from edgelens.gui.thumbs import (
     BgTask,
     PixmapCache,
@@ -76,8 +77,7 @@ class DatasetPanel(Panel):
         lay.addWidget(self.grid_host)
         self.total_label = QLabel()
         self.last_label = QLabel()
-        self.hint_label = QLabel()
-        self.hint_label.setWordWrap(True)
+        self.hint_label = StableLabel(2)   # 拍照後提示可能出現／消失：保留高度，版面不跳動
         self.hint_label.setStyleSheet("color: #b36b00;")
         for w in (self.total_label, self.last_label, self.hint_label):
             lay.addWidget(w)
@@ -201,7 +201,6 @@ class DatasetPanel(Panel):
         elif not stats.total:
             hint = tr("gui.dataset.panel.empty")
         self.hint_label.setText(hint)
-        self.hint_label.setVisible(bool(hint))
         if self.recent_model is not None:
             recent = sorted(self._records, key=lambda r: float(r.time.get("epoch", 0) or 0), reverse=True)[:RECENT]
             self.recent_model.set_records(recent)

@@ -357,3 +357,29 @@ def test_kmodel_on_k210_uses_load_model_action(qtbot, tmp_path, monkeypatch):
         qtbot.waitUntil(lambda: "unload_model" in actions, timeout=3000)
     finally:
         window.close()
+
+
+def test_live_results_do_not_make_layout_jump(qtbot, env, models):
+    """即時結果偵測到的物體數一直變（0、1、3、8 個），下面的按鈕位置不能跟著跳動。"""
+    from edgelens.core.results import Detection, InferenceResult
+
+    ctx, window, handle, panel = env
+    window.resize(1400, 1000)
+    window.show()
+    window.tabs.setCurrentWidget(panel)
+    assert panel.load_path(models["yolo_t"])
+    s = loaded(qtbot, panel)
+    s.stop()   # 停掉真的推論，改送自己造的結果
+    base = s.last_result
+
+    def show(n: int) -> int:
+        dets = [Detection((0, 0, 10, 10), 0.9 - i * 0.05, i % 3, f"物體{i}") for i in range(n)]
+        s.last_result = InferenceResult(kind="detect", model_name="m", frame_seq=base.frame_seq, detections=dets,
+                                        timings_ms=dict(base.timings_ms))
+        panel.update_live()
+        panel.layout().activate()
+        qtbot.wait(10)
+        return panel.raw_button.mapTo(panel, panel.raw_button.rect().topLeft()).y()
+
+    ys = {show(n) for n in (1, 0, 3, 8, 2, 0)}
+    assert len(ys) == 1, f"按鈕位置跟著偵測數量跳動：{ys}"

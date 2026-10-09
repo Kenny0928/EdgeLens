@@ -37,6 +37,7 @@ from edgelens.core.controls import specs_by_key
 from edgelens.core.registry import discover
 from edgelens.gui.control_panel import ControlPanel
 from edgelens.gui.panels.base import Panel
+from edgelens.gui.stable import StableLabel
 from edgelens.gui.workers import FramePacket, SourceHandle
 from edgelens.i18n import component_description, component_name, current_language, tr, tr_or
 from edgelens.processing.colorpick import (
@@ -173,12 +174,10 @@ class PipelinePanel(Panel):
         ml.addLayout(tools)
         ml.addLayout(tools2)
 
-        self.time_label = QLabel()
-        self.time_label.setWordWrap(True)
-        self.slow_label = QLabel()
-        self.slow_label.setWordWrap(True)
+        # 每秒更新：高度固定；「處理太久」不顯示時留白而不是隱藏，版面才不會跳動
+        self.time_label = StableLabel(2)
+        self.slow_label = StableLabel(2)
         self.slow_label.setStyleSheet("color:#C77700;font-weight:bold;")
-        self.slow_label.hide()
         ml.addWidget(self.time_label)
         ml.addWidget(self.slow_label)
 
@@ -557,7 +556,7 @@ class PipelinePanel(Panel):
     def _update_timing_labels(self, packet: FramePacket | None) -> None:
         if packet is None:
             self.time_label.setText(tr("gui.pipeline.total_none"))
-            self.slow_label.hide()
+            self.slow_label.setText("")
             return
         res = packet.result
         enabled = [i for i, s in enumerate(self._steps) if s["enabled"]]
@@ -584,8 +583,7 @@ class PipelinePanel(Panel):
         total = res.total_ms
         max_fps = 1000.0 / total if total > 0.01 else 0.0
         self.time_label.setText(tr("gui.pipeline.total", ms=f"{total:.1f}", fps=f"{max_fps:.0f}"))
-        self.slow_label.setVisible(total > SLOW_MS)
-        self.slow_label.setText(tr("gui.pipeline.slow", ms=f"{total:.0f}"))
+        self.slow_label.setText(tr("gui.pipeline.slow", ms=f"{total:.0f}") if total > SLOW_MS else "")
 
     # ---- 吸管取色 ---------------------------------------------------------------
     def _on_pick_toggled(self, on: bool) -> None:

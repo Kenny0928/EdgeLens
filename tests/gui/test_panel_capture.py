@@ -205,7 +205,7 @@ def test_similar_photo_hint(qtbot, env):
     ctx, window, handle, panel = env
     panel.capture_now()
     wait_saved(qtbot, panel, 1)
-    assert not panel.similar_label.isVisibleTo(panel)
+    assert panel.similar_label.text() == ""   # 不提醒時留白（不隱藏，版面才不會跳動）
     panel.capture_now()
     assert "很像" in panel.similar_label.text()
     wait_saved(qtbot, panel, 2)

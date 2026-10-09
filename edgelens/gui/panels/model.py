@@ -38,6 +38,7 @@ from edgelens.gui.control_panel import ControlPanel
 from edgelens.gui.inference import MAX_SESSIONS_PER_CAMERA, InferenceSession
 from edgelens.gui.panels.base import Panel
 from edgelens.gui.raw_output_dialog import RawOutputDialog
+from edgelens.gui.stable import StableLabel
 from edgelens.gui.workers import SourceHandle
 from edgelens.i18n import tr, tr_or
 from edgelens.inference.backends.haar import builtin_cascades, cascade_display_name
@@ -49,6 +50,7 @@ log = logging.getLogger(__name__)
 FILE_FILTER = "*.onnx *.tflite *.weights *.cfg *.xml *.kmodel *.card.json"
 LIVE_INTERVAL = 0.25         # 即時資訊最多每 0.25 秒更新一次（畫面不要一直重畫文字）
 TOP_SHOWN = 5
+LIST_SHOWN = 5          # 偵測結果清單最多列幾個物體（固定高度）
 DEFAULT_DEVICE_DIR = "/flash/"
 
 
@@ -211,12 +213,12 @@ class ModelPanel(Panel):
         # 即時資訊
         self.live_box = QGroupBox()
         lv = QVBoxLayout(self.live_box)
-        self.live_stats = QLabel("-")
-        self.live_stats.setWordWrap(True)
-        self.live_list = QLabel()
-        self.live_list.setWordWrap(True)
+        # 這一區每秒更新好幾次：高度固定，內容怎麼變都不會把下面的按鈕推上推下
+        self.live_stats = StableLabel(3, "-")
+        self.live_list = StableLabel(LIST_SHOWN + 1)
         lv.addWidget(self.live_stats)
         lv.addWidget(self.live_list)
+        self._live_kind: str | None = None
         self._bars: list[tuple[QLabel, QProgressBar]] = []
         for _ in range(TOP_SHOWN):
             r = QHBoxLayout()
@@ -638,6 +640,7 @@ class ModelPanel(Panel):
                                    pre=f"{t.get('preprocess', 0.0):.1f}", infer=f"{t.get('infer', 0.0):.1f}",
                                    post=f"{t.get('postprocess', 0.0):.1f}", total=f"{t.get('total', 0.0):.1f}",
                                    age=int(st["age_frames"])))
+        self._set_live_kind("classify" if r.kind == "classify" else "detect")
         if r.extra.get("device_missing"):
             self.live_list.setText(tr("gui.model.live.device_missing"))
             self._show_bars([])
@@ -645,27 +648,40 @@ class ModelPanel(Panel):
             self.live_list.setText("")
             self._show_bars(r.top_k[:TOP_SHOWN])
         else:
-            self._show_bars([])
             if r.detections:
-                lines = [f"{d.label or d.class_id}  {d.score:.2f}" for d in r.detections[:8]]
-                more = len(r.detections) - 8
+                lines = [f"{d.label or d.class_id}  {d.score:.2f}" for d in r.detections[:LIST_SHOWN]]
+                more = len(r.detections) - LIST_SHOWN
                 if more > 0:
                     lines.append(tr("gui.model.live.more", count=more))
                 self.live_list.setText("\n".join(lines))
             else:
                 self.live_list.setText(tr("gui.model.live.none"))
 
+    def _set_live_kind(self, kind: str) -> None:
+        """偵測與分類的即時區排法不同；只在模型種類改變時重排一次，不會每張畫面跳動。"""
+        if kind == self._live_kind:
+            return
+        self._live_kind = kind
+        classify = kind == "classify"
+        # 偵測：清單保留 LIST_SHOWN 個物體＋「還有幾個」一行；分類：長條固定 TOP_SHOWN 列，清單只留一行給提示
+        self.live_list.set_lines(1 if classify else LIST_SHOWN + 1)
+        for name, bar in self._bars:
+            name.setVisible(classify)
+            bar.setVisible(classify)
+        self.live_stats.reset_height()
+
     def _show_bars(self, items: list) -> None:
+        """分類長條一直顯示固定列數；沒有結果的列留白，而不是隱藏（隱藏會讓版面跳動）。"""
         for i, (name, bar) in enumerate(self._bars):
             if i < len(items):
                 c = items[i]
                 name.setText(c.label or str(c.class_id))
                 bar.setValue(int(round(c.score * 100)))
-                name.show()
-                bar.show()
+                bar.setTextVisible(True)
             else:
-                name.hide()
-                bar.hide()
+                name.setText("")
+                bar.setValue(0)
+                bar.setTextVisible(False)
 
     # ---- 其他動作 -----------------------------------------------------------------
     def stop_current(self) -> None:

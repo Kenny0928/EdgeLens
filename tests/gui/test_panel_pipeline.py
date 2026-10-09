@@ -109,9 +109,9 @@ def test_slow_warning(qtbot, env):
     slow.result = copy.copy(pkt.result)
     slow.result.total_ms = 80.0
     panel._update_timing_labels(slow)
-    assert not panel.slow_label.isHidden()
+    assert "80" in panel.slow_label.text()
     panel._update_timing_labels(pkt)
-    assert panel.slow_label.isHidden()
+    assert panel.slow_label.text() == ""          # 不慢時留白（不隱藏，版面才不會跳動）
 
 
 def test_presets_apply_and_save(qtbot, env):

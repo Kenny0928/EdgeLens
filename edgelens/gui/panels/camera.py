@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
 from edgelens.core.controls import ControlResult, ControlType, defaults_of
 from edgelens.gui.control_panel import ControlPanel
 from edgelens.gui.panels.base import Panel
+from edgelens.gui.stable import StableLabel
 from edgelens.gui.workers import FramePacket, SourceHandle
 from edgelens.i18n import component_name, tr
 from edgelens.sources.base import SOURCES
@@ -53,7 +54,8 @@ class CameraPanel(Panel):
         self._info_labels: dict[str, QLabel] = {}
         self._info_names: dict[str, QLabel] = {}
         for key in ("name", "kind", "resolution", "fps", "latency", "capabilities", "state"):
-            value = QLabel("-")
+            # FPS、延遲每張畫面更新：用固定高度的標籤，數字變化不影響版面
+            value = StableLabel(1, "-") if key in ("fps", "latency") else QLabel("-")
             value.setWordWrap(True)
             value.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
             name = QLabel()
