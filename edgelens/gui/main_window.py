@@ -321,6 +321,7 @@ class MainWindow(QMainWindow):
         langg.addAction(self.act_en)
         self.act_about = A("gui.action.about", self.show_about)
         self.act_devdoc = A("gui.action.dev_doc", self.show_dev_doc)
+        self.act_diag = A("diag.action", self.show_diagnostics)
 
     def _build_menus(self) -> None:
         m = self._menu("file", "gui.menu.file")
@@ -348,6 +349,7 @@ class MainWindow(QMainWindow):
         m = self._menu("help", "gui.menu.help")
         m.addAction(self.act_about)
         m.addAction(self.act_devdoc)
+        m.addAction(self.act_diag)
         m.addSeparator()
 
     def _build_toolbar(self) -> None:
@@ -611,6 +613,16 @@ class MainWindow(QMainWindow):
 
     def dev_doc_path(self) -> Path:
         return Path(edgelens.__file__).resolve().parent.parent / "docs" / "DEVELOPMENT.md"
+
+    def show_diagnostics(self) -> None:
+        """說明 →「診斷資訊…」。放在主視窗而不是某個面板：面板載入失敗時，正是最需要診斷的時候。"""
+        try:
+            from edgelens.gui.diagnostics import show_diagnostics
+        except Exception as e:  # noqa: BLE001
+            log.exception("無法開啟診斷資訊")
+            QMessageBox.warning(self, tr("common.error"), str(e))
+            return
+        show_diagnostics(self, self.ctx)
 
     def show_dev_doc(self) -> None:
         path = self.dev_doc_path()
