@@ -26,6 +26,7 @@ class AppContext(QObject):
     sourcesChanged = Signal()
     activeSourceChanged = Signal(object)   # SourceHandle | None
     statusMessage = Signal(str, int)       # 文字、顯示毫秒數（0 表示一直顯示）
+    datasetChanged = Signal()              # 資料集有變動（拍照存檔、改類別、刪除…）；面板收到就重新讀取
     _languageBridge = Signal(str)
 
     def __init__(self, settings: Settings, workspace: Workspace, project: Project | None = None,

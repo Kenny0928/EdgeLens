@@ -298,3 +298,24 @@ class DatasetWriter:
                         log.warning("跳過無法讀取的照片 %s：%s", path.name, exc)
             self._write(records)
             return [r for r in records if not r.deleted]
+
+
+_shared: dict[str, DatasetWriter] = {}
+_shared_lock = threading.Lock()
+
+
+def shared_writer(project: Project) -> DatasetWriter:
+    """同一個專案資料夾在整個程式裡只用一個 DatasetWriter。
+
+    改類別、刪除、復原會重寫整個 metadata.jsonl；如果拍照面板和資料集瀏覽器各有一個 writer
+    （各自的鎖），重寫時可能蓋掉另一個 writer 剛附加的紀錄，照片就從資料集裡「消失」。
+    以資料夾路徑為鍵；專案物件重新載入（例如改了類別）時更新 writer.project，不另建新的。"""
+    key = str(Path(project.root).resolve())
+    with _shared_lock:
+        writer = _shared.get(key)
+        if writer is None:
+            writer = DatasetWriter(project)
+            _shared[key] = writer
+        else:
+            writer.project = project
+        return writer

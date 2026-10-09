@@ -151,3 +151,16 @@ def test_many_saves_append_without_rewriting(writer, bgr_image, make_frame):
         writer.save(make_frame(bgr_image, seq=i), "apple")
     lines = writer.metadata_path.read_bytes().splitlines()
     assert len(lines) == 30 and len(writer.list_samples()) == 30
+
+
+def test_shared_writer_is_one_per_folder(tmp_path):
+    """拍照與瀏覽器必須共用同一個 writer，改類別重寫 metadata 才不會蓋掉剛拍的紀錄。"""
+    from edgelens.core.project import Workspace
+    from edgelens.dataset.writer import shared_writer
+
+    ws = Workspace(tmp_path / "ws")
+    p = ws.create_project("p", template="rock_paper_scissors")
+    w1 = shared_writer(p)
+    again = ws.open_project(p.id)  # 重新載入的專案物件
+    w2 = shared_writer(again)
+    assert w1 is w2 and w2.project is again
