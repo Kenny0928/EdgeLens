@@ -89,6 +89,8 @@ class VideoView(QWidget):
         self._mode = "none"
         self._drag_start: QPointF | None = None
         self._drag_now: QPointF | None = None
+        self._reference: QImage | None = None
+        self._reference_opacity = 0.4
         self._banner = _ErrorBanner(self)
         self._banner.retryRequested.connect(self.retryRequested)
 
@@ -132,6 +134,12 @@ class VideoView(QWidget):
 
     def set_hud(self, lines: list[str]) -> None:
         self._hud = list(lines)
+        self.update()
+
+    def set_reference_image(self, image: QImage | None, opacity: float = 0.4) -> None:
+        """構圖參考圖：以半透明疊在畫面上（只畫在螢幕上，不會存進標註圖）；None 表示關閉。"""
+        self._reference = image if image is not None and not image.isNull() else None
+        self._reference_opacity = max(0.0, min(1.0, float(opacity)))
         self.update()
 
     def set_hud_visible(self, visible: bool) -> None:
@@ -210,6 +218,10 @@ class VideoView(QWidget):
         else:
             r = self._image_rect()
             p.drawImage(r, self._image)
+            if self._reference is not None:
+                p.setOpacity(self._reference_opacity)
+                p.drawImage(r, self._reference)
+                p.setOpacity(1.0)
             s = r.width() / self._image.width()
             self._paint_annotations(p, s, r.x(), r.y(), font_px=max(12.0, self.font().pointSizeF() * 1.4))
             self._paint_drag(p)
