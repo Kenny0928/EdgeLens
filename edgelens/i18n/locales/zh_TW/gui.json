@@ -116,5 +116,6 @@
   "gui.workspace.cannot_create": "無法建立這個資料夾：{error}",
   "gui.list_sep": "、",
   "gui.control.browse_file": "選擇檔案…",
-  "gui.control.browse_folder": "選擇資料夾…"
+  "gui.control.browse_folder": "選擇資料夾…",
+  "gui.hud.ended": "已播完（可在「相機」面板勾選「循環播放」或按「從頭開始」）"
 }

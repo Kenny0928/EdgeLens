@@ -116,5 +116,6 @@
   "gui.workspace.cannot_create": "Cannot create this folder: {error}",
   "gui.list_sep": ", ",
   "gui.control.browse_file": "Choose a file…",
-  "gui.control.browse_folder": "Choose a folder…"
+  "gui.control.browse_folder": "Choose a folder…",
+  "gui.hud.ended": "Finished (turn on looping or restart in the Camera panel)"
 }

@@ -552,6 +552,9 @@ class MainWindow(QMainWindow):
             lines.append(tr("gui.hud.fps_latency", fps=f"{pkt.stats.get('fps', 0.0):.1f}",
                             ms=f"{pkt.stats.get('latency_ms', 0.0):.0f}"))
             lines.append(f"{pkt.frame.width}×{pkt.frame.height}")
+            if pkt.frame.meta.get("ended"):
+                # 影片／圖片資料夾播完且不循環：畫面會停住，要說清楚不是當機
+                lines.append(tr("gui.hud.ended"))
         lines.extend(self._hud_extra.get(handle, {}).values())
         view.set_hud(lines)
 

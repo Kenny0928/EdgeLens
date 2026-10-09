@@ -160,3 +160,21 @@ def test_retry_after_error(qtbot, gui):
 
 def test_language_is_restored_by_fixture(gui):
     assert i18n.current_language() == "zh_TW"
+
+
+def test_hud_says_when_file_playback_ended(qtbot, gui, tmp_path):
+    """影片／圖片資料夾播完（不循環）時畫面會停住，HUD 要說明「已播完」，學生才不會以為當機。"""
+    import cv2
+    import numpy as np
+
+    folder = tmp_path / "圖片"
+    folder.mkdir()
+    for i in range(2):
+        ok, buf = cv2.imencode(".png", np.full((24, 32, 3), 60 * i, np.uint8))
+        (folder / f"{i}.png").write_bytes(buf.tobytes())
+    ctx, window = gui
+    info = SourceInfo(kind="file", id=f"file:{folder}", name="圖片", params={"path": str(folder), "loop": False,
+                                                                                   "fps": 30})
+    handle = window.add_source(info)
+    view = window.video_view_for(handle)
+    qtbot.waitUntil(lambda: any("已播完" in line for line in view._hud), timeout=4000)
