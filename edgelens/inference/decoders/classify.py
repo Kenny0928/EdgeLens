@@ -49,8 +49,11 @@ class ClassifyDecoder(Decoder):
         scores = np.asarray(outputs[0], dtype=np.float32).reshape(-1)
         act = self.params.get("activation", "auto")
         if act == "auto":
+            # 已經是機率（0–1 且總和接近 1）就不再做 softmax。容許範圍放寬到 0.7–1.3：
+            # 量化（uint8）模型的機率有捨入誤差，總和常常只有 0.9 多，再做一次 softmax 分數會全擠在一起。
             total = float(scores.sum())
-            act = "none" if (scores.min() >= 0 and abs(total - 1.0) < 1e-2) else "softmax"
+            is_prob = scores.min() >= 0 and scores.max() <= 1 and 0.7 < total < 1.3
+            act = "none" if is_prob else "softmax"
         if act == "softmax":
             scores = softmax(scores)
         elif act == "sigmoid":

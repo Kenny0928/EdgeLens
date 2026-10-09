@@ -282,3 +282,19 @@ def test_classify_softmax_and_probabilities():
     probs = np.array([[0.1, 0.7, 0.1, 0.1]], np.float32)
     _, _, _, out = run_decoder("classify", [probs], (224, 224))
     assert out.class_scores.tolist() == pytest.approx(probs[0].tolist())
+
+
+def test_classify_quantized_probabilities_not_softmaxed_twice():
+    """量化模型的機率總和因捨入只有約 0.94，不能再做一次 softmax（分數會全擠在一起）。"""
+    import numpy as np
+
+    from edgelens.core.modelcard import ModelCard
+    from edgelens.inference.base import DecodeContext
+    from edgelens.inference.decoders.classify import ClassifyDecoder
+
+    card = ModelCard(name="m", file="m.tflite")
+    probs = np.zeros(1001, np.float32)
+    probs[[208, 209, 250]] = (0.70, 0.16, 0.08)   # 總和 0.94
+    out = ClassifyDecoder(card).decode([probs[None]], DecodeContext(card=card, input_size=(224, 224),
+                                                                      conf_threshold=0.0))
+    assert abs(float(out.class_scores[208]) - 0.70) < 1e-6
