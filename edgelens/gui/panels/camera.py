@@ -21,7 +21,7 @@ from edgelens.core.controls import ControlResult, ControlType, defaults_of
 from edgelens.gui.control_panel import ControlPanel
 from edgelens.gui.panels.base import Panel
 from edgelens.gui.workers import FramePacket, SourceHandle
-from edgelens.i18n import tr, tr_or
+from edgelens.i18n import component_name, tr
 from edgelens.sources.base import SOURCES
 
 
@@ -137,7 +137,7 @@ class CameraPanel(Panel):
             return
         self._last_info_update = now
         cls = SOURCES.find(h.info.kind)
-        kind_name = tr_or(cls.display_name_key, h.info.kind) if cls is not None else h.info.kind
+        kind_name = component_name(cls) if cls is not None else h.info.kind
         pkt = h.last_packet
         lab = self._info_labels
         lab["name"].setText(h.info.name)

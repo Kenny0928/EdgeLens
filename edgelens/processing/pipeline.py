@@ -113,6 +113,8 @@ class ProcessingStep(ABC):
     category: ClassVar[str] = "custom"
     display_name_key: ClassVar[str] = ""
     description_key: ClassVar[str] = ""
+    display_name: ClassVar[str] = ""        # 沒有翻譯檔時的顯示名稱（純文字，外掛用）
+    description: ClassVar[str] = ""         # 沒有翻譯檔時的說明（純文字，外掛用）
     stateful: ClassVar[bool] = False
     changes_size: ClassVar[bool] = False
     accepts_gray: ClassVar[bool] = True

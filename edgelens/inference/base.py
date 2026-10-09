@@ -132,6 +132,8 @@ class Backend(ABC):
 
     kind: ClassVar[str] = ""
     display_name_key: ClassVar[str] = ""
+    display_name: ClassVar[str] = ""        # 沒有翻譯檔時的顯示名稱（純文字，外掛用）
+    description: ClassVar[str] = ""         # 沒有翻譯檔時的說明（純文字，外掛用）
     extensions: ClassVar[tuple[str, ...]] = ()     # 支援的副檔名，例如 (".onnx",)
     requires: ClassVar[tuple[str, ...]] = ()       # 需要的選配模組，例如 ("onnxruntime",)
     input_mode: ClassVar[Literal["tensor", "image", "device"]] = "tensor"
@@ -188,6 +190,8 @@ class Decoder(ABC):
     task: ClassVar[Literal["detect", "classify"]] = "detect"
     display_name_key: ClassVar[str] = ""
     description_key: ClassVar[str] = ""
+    display_name: ClassVar[str] = ""        # 沒有翻譯檔時的顯示名稱（純文字，外掛用）
+    description: ClassVar[str] = ""         # 沒有翻譯檔時的說明（純文字，外掛用）
 
     def __init__(self, card: ModelCard, params: dict[str, Any] | None = None):
         self.card = card

@@ -284,3 +284,14 @@ def test_info_for_storage_strips_url_passwords():
     assert strip_url_password("C:/影片/a.mp4") == "C:/影片/a.mp4"
     info = SourceInfo(kind="rtsp", id="rtsp:x", name="x", params={"url": "rtsp://u:secret@cam/1", "transport": "tcp"})
     assert "secret" not in str(info_for_storage(info))
+
+
+def test_default_workspace_avoids_cloud_synced_documents(tmp_path, monkeypatch):
+    from edgelens.core import paths
+
+    monkeypatch.delenv("EDGELENS_WORKSPACE", raising=False)
+    monkeypatch.setattr(paths, "documents_dir", lambda: tmp_path / "OneDrive" / "Documents")
+    monkeypatch.setattr(paths.Path, "home", classmethod(lambda cls: tmp_path))
+    assert paths.default_workspace() == tmp_path / "EdgeLens"
+    monkeypatch.setattr(paths, "documents_dir", lambda: tmp_path / "Docs")
+    assert paths.default_workspace() == tmp_path / "Docs" / "EdgeLens"

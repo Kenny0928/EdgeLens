@@ -130,3 +130,17 @@ def tr_or(key: str, fallback: str, /, **kwargs: Any) -> str:
     if key and (has(key) or has(key, FALLBACK_LANGUAGE)):
         return tr(key, **kwargs)
     return fallback.format(**kwargs) if kwargs else fallback
+
+
+def component_name(cls: Any) -> str:
+    """元件（相機來源、處理步驟、推論後端、解碼器）要顯示的名稱。
+
+    依序：display_name_key 的翻譯 → 類別屬性 display_name（純文字，給沒有翻譯檔的外掛用）
+    → kind。"""
+    fallback = getattr(cls, "display_name", "") or getattr(cls, "kind", "") or getattr(cls, "__name__", "")
+    return tr_or(getattr(cls, "display_name_key", ""), fallback)
+
+
+def component_description(cls: Any) -> str:
+    """元件的說明文字：description_key 的翻譯 → 類別屬性 description（純文字）→ 空字串。"""
+    return tr_or(getattr(cls, "description_key", ""), getattr(cls, "description", "") or "")

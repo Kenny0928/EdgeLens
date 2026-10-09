@@ -23,7 +23,7 @@ from PySide6.QtWidgets import (
 
 from edgelens.gui.context import AppContext
 from edgelens.gui.control_panel import ControlPanel
-from edgelens.i18n import tr, tr_or
+from edgelens.i18n import component_description, component_name, tr
 from edgelens.sources.base import SOURCES, FrameSource, SourceInfo
 
 log = logging.getLogger(__name__)
@@ -118,14 +118,14 @@ class SourceDialog(QDialog):
 
         for kind, cls in SOURCES.items():
             ok, reason = cls.available()
-            name = tr_or(cls.display_name_key, kind)
+            name = component_name(cls)
             item = QListWidgetItem(name if ok else f"{name}  ({tr('gui.source.unavailable')})")
             item.setData(Qt.ItemDataRole.UserRole, kind)
             if not ok:
                 item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEnabled)
                 item.setToolTip(reason)
             else:
-                item.setToolTip(tr_or(cls.description_key, ""))
+                item.setToolTip(component_description(cls))
             self.kind_list.addItem(item)
         for i in range(self.kind_list.count()):
             if self.kind_list.item(i).flags() & Qt.ItemFlag.ItemIsEnabled:
@@ -142,7 +142,7 @@ class SourceDialog(QDialog):
             if info.kind not in SOURCES:
                 continue
             self._recent_infos.append(info)
-            self.recent_list.addItem(f"{info.name}  [{tr_or(SOURCES.get(info.kind).display_name_key, info.kind)}]")
+            self.recent_list.addItem(f"{info.name}  [{component_name(SOURCES.get(info.kind))}]")
         self.recent_box.setVisible(bool(self._recent_infos))
 
     def _recent_clicked(self, _item) -> None:
@@ -168,7 +168,7 @@ class SourceDialog(QDialog):
         kind = item.data(Qt.ItemDataRole.UserRole)
         cls = SOURCES.get(kind)
         self._kind = kind
-        self.desc.setText(tr_or(cls.description_key, ""))
+        self.desc.setText(component_description(cls))
         self.find_button.setEnabled(self._thread is None)
         specs = cls.param_specs() if cls.manual_add else []
         self.manual_box.setVisible(cls.manual_add)

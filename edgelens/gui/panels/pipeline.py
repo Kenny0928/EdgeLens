@@ -38,7 +38,7 @@ from edgelens.core.registry import discover
 from edgelens.gui.control_panel import ControlPanel
 from edgelens.gui.panels.base import Panel
 from edgelens.gui.workers import FramePacket, SourceHandle
-from edgelens.i18n import current_language, tr, tr_or
+from edgelens.i18n import component_description, component_name, current_language, tr, tr_or
 from edgelens.processing.colorpick import (
     ColorSample,
     pick,
@@ -292,7 +292,7 @@ class PipelinePanel(Panel):
     @staticmethod
     def step_name(kind: str) -> str:
         cls = STEPS.find(kind)
-        return tr_or(cls.display_name_key, kind) if cls is not None and cls.display_name_key else kind
+        return component_name(cls) if cls is not None else kind
 
     @staticmethod
     def is_plugin(kind: str) -> bool:
@@ -319,7 +319,7 @@ class PipelinePanel(Panel):
             item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
             item.setCheckState(Qt.CheckState.Checked if step["enabled"] else Qt.CheckState.Unchecked)
             cls = STEPS.find(step["kind"])
-            item.setToolTip(tr_or(cls.description_key, "") if cls is not None else tr("gui.pipeline.unknown_step"))
+            item.setToolTip(component_description(cls) if cls is not None else tr("gui.pipeline.unknown_step"))
             self.list.addItem(item)
         self._updating = False
         if self._steps:
@@ -449,11 +449,11 @@ class PipelinePanel(Panel):
                 continue
             sub = self.add_menu.addMenu(tr_or(f"gui.pipeline.category.{cat}", cat))
             for kind, cls in sorted(entries, key=lambda e: e[0]):
-                name = tr_or(cls.display_name_key, kind) if cls.display_name_key else kind
+                name = component_name(cls)
                 if self.is_plugin(kind):
                     name += f" [{tr('gui.pipeline.plugin')}]"
                 act = sub.addAction(name)
-                act.setToolTip(tr_or(cls.description_key, "") if cls.description_key else "")
+                act.setToolTip(component_description(cls))
                 act.setStatusTip(act.toolTip())
                 act.hovered.connect(lambda a=act: self._show_action_tip(a))
                 act.triggered.connect(lambda _=False, k=kind: self.add_step(k))

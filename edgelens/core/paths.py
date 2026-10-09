@@ -99,11 +99,15 @@ def documents_dir() -> Path:
 
 
 def default_workspace() -> Path:
-    """預設工作區。可用 EDGELENS_WORKSPACE 覆寫。"""
+    """預設工作區：「文件／EdgeLens」；文件資料夾在雲端同步（iCloud、OneDrive…）時改用
+    「家目錄／EdgeLens」，因為同步可能把資料集照片移到雲端或標成隱藏。可用 EDGELENS_WORKSPACE 覆寫。"""
     env = os.environ.get("EDGELENS_WORKSPACE")
     if env:
         return Path(env)
-    return documents_dir() / APP_DIR_NAME
+    docs = documents_dir() / APP_DIR_NAME
+    if cloud_sync_provider(docs) is not None:
+        return Path.home() / APP_DIR_NAME
+    return docs
 
 
 def cloud_sync_provider(path: str | Path) -> str | None:

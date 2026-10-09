@@ -106,3 +106,28 @@ $PY -m edgelens                       # 開啟介面
 | 7 | 資料集、指標 | `dataset/`、`metrics/` |
 | 8a／8b／9 | 圖形介面 | `gui/` |
 | 10 | 文件 | `README*.md`、`docs/` |
+
+## 目前功能總覽
+
+以下列出目前程式的主要入口與模組關係；操作說明見[學生手冊](STUDENT_GUIDE.md)、[教師指南](TEACHER_GUIDE.md)與[外掛教學](PLUGINS.md)。模型與比較面板的操作章節保留給後續整合補充。
+
+| 檔案／模組 | 功能與關係 |
+|---|---|
+| [bootstrap.py](../bootstrap.py)、`run_windows.bat`／`run_macos.command`／`run_linux.sh` | 尋找 Python 3.10–3.13、建立快取環境、安裝必要及選配套件；提供 wheelhouse 準備與離線安裝，最後啟動套件 |
+| [__main__.py](../edgelens/__main__.py)、[gui/app.py](../edgelens/gui/app.py) | 命令列、自我檢查、安全模式；建立 Qt app、選工作區、探索內建元件、載入外掛與初始專案 |
+| [core/project.py](../edgelens/core/project.py)、[core/settings.py](../edgelens/core/settings.py)、[core/paths.py](../edgelens/core/paths.py) | 工作區／專案／類別、本機設定、跨平台路徑與原子寫檔；`presets/projects/*.json` 提供空白及兩個專題範本 |
+| [core/registry.py](../edgelens/core/registry.py)、[core/controls.py](../edgelens/core/controls.py) | 四種註冊表與外掛載入；ControlSpec 驅動 GUI 參數控制項與驗證 |
+| [sources/base.py](../edgelens/sources/base.py)、`sources/{synthetic,file,webcam,mjpeg,rtsp,esp32cam}.py`、`sources/k210/` | 統一 FrameSource；本機、檔案、網路與板子來源；測試圖案、ESP32-CAM 與 K210 通訊模擬供無硬體驗證 |
+| [processing/pipeline.py](../edgelens/processing/pipeline.py)、`processing/steps/`、[processing/library.py](../edgelens/processing/library.py)、[processing/colorpick.py](../edgelens/processing/colorpick.py) | 依序執行步驟、保存流程、預設組合與吸管取色；StepContext 傳遞數值、疊圖和幾何座標關係 |
+| [inference/base.py](../edgelens/inference/base.py)、[inference/runner.py](../edgelens/inference/runner.py)、`inference/backends/`、`inference/decoders/` | 前處理 → 後端 → 解碼 → 門檻／NMS → 原始座標結果；ModelCard 指定模型、類別與輸入輸出規格，autodetect 協助判斷格式 |
+| [gui/main_window.py](../edgelens/gui/main_window.py)、[gui/workers.py](../edgelens/gui/workers.py)、[gui/video_view.py](../edgelens/gui/video_view.py) | 主視窗、每來源工作執行緒與畫面；設定透過佇列交給 worker，畫面及處理結果送回 GUI |
+| `gui/{workspace_dialog,project_dialog,source_dialog,control_panel}.py` | 工作區選擇、專案與類別編輯、來源探索／手動加入、自動產生參數欄位和確認狀態 |
+| `gui/panels/{camera,pipeline,capture,dataset,bench,k210}.py` | 相機設定、影像處理、拍照、資料集、效能／錄影及板子工具；共同面板介面由 `gui/panels/base.py` 定義 |
+| [dataset/writer.py](../edgelens/dataset/writer.py)、`dataset/{stats,dedupe,split,export}.py` | 原始與處理影像、metadata、改類別、刪除復原、統計、相似照片、分組切分與 ZIP；由拍照與資料集 GUI 共用 |
+| [gui/dataset_browser.py](../edgelens/gui/dataset_browser.py)、[gui/export_dialog.py](../edgelens/gui/export_dialog.py)、[gui/capture_tools.py](../edgelens/gui/capture_tools.py) | 縮圖瀏覽、篩選、資料切分／匯出；品質門檻、近期相似提醒與靜止判斷支援拍照流程 |
+| `metrics/{rolling,quality,csvlog,sweep,evaluate,detection_rate}.py`、[gui/recorder.py](../edgelens/gui/recorder.py) | FPS／延遲、品質、CSV、參數掃描、模型評估及偵測率；Recorder 保存影片與對應數據 |
+| [diagnostics_report.py](../edgelens/diagnostics_report.py)、[gui/diagnostics.py](../edgelens/gui/diagnostics.py)、[selftest.py](../edgelens/selftest.py) | 系統／套件／註冊表／外掛匯入失敗、設定遮蔽、日誌與自我檢查；GUI 可匯出診斷 ZIP |
+| [i18n/__init__.py](../edgelens/i18n/__init__.py)、`i18n/locales/{zh_TW,en}/*.json` | 合併翻譯表；`tr` 處理內建文字，`tr_or` 支援指定備援文字；顯示備援仍依各 GUI 呼叫處決定 |
+| [tests/unit/test_example_plugins.py](../tests/unit/test_example_plugins.py)、[docs/examples/plugins](examples/plugins/) | 三個無硬體、無翻譯檔外掛；透過 load_plugins 驗證，重用內建步驟執行／序列化／reset 契約，名稱翻譯要求改驗備援行為 |
+
+資料在 `FrameSource → Frame → Pipeline → ProcessResult` 後送往顯示、拍照與效能記錄；推論經 `InferenceRunner` 產生 `InferenceResult`，供疊圖、樣本中繼資料與評估使用。工作區保存專案與共用外掛，本機設定保存連線及目前操作狀態；交接專案時，要把處理流程另存到專案的 `pipelines/`，並另附所需外掛。

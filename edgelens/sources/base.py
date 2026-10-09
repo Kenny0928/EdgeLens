@@ -89,6 +89,8 @@ class FrameSource(ABC):
     kind: ClassVar[str] = ""
     display_name_key: ClassVar[str] = ""   # i18n 鍵，例如 "source.webcam.name"
     description_key: ClassVar[str] = ""    # i18n 鍵，新增相機對話框的說明
+    display_name: ClassVar[str] = ""        # 沒有翻譯檔時的顯示名稱（純文字，外掛用）
+    description: ClassVar[str] = ""         # 沒有翻譯檔時的說明（純文字，外掛用）
     requires: ClassVar[tuple[str, ...]] = ()  # 需要的選配 Python 模組
     # discover() 是否安全（不會跳權限視窗、不會花超過 1 秒、不需要硬體）；
     # contract tests 只會呼叫安全的 discover()
