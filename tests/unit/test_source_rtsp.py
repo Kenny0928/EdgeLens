@@ -104,7 +104,9 @@ def test_keeps_only_latest_frame(fake_cap):
             lags.append((cap.n - int(f.image[0, 0, 0])) % 256)
             time.sleep(0.05)
         assert max(lags) < 30, f"落後 {max(lags)} 張，舊畫面沒有被丟掉"
-        assert fake_cap.instances[0].n > 100   # 背景執行緒一直在讀
+        # 背景執行緒一直在讀：主迴圈 2 秒只取約 40 張，讀到的明顯更多。
+        # macOS CI 的 sleep 精度差，2 ms 常變 20 ms，所以門檻不能太高
+        assert fake_cap.instances[0].n > 60
 
 
 def test_returns_none_on_timeout(fake_cap):

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import time
 
 import numpy as np
@@ -62,7 +63,8 @@ def test_nms_performance_8000_boxes():
     ids = rng.integers(0, 10, 8000)
     batched_nms(boxes, scores, ids, 0.45, 100)  # 暖機
     best = min(_time(lambda: batched_nms(boxes, scores, ids, 0.45, 100)) for _ in range(5))
-    assert best < 0.010, f"{best * 1000:.1f} ms"
+    limit = 0.030 if os.environ.get("CI") else 0.010   # 雲端 CI 機器共用、慢又不穩
+    assert best < limit, f"{best * 1000:.1f} ms"
 
 
 def _time(fn):

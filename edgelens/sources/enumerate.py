@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import re
 import subprocess
 import sys
@@ -292,4 +291,4 @@ def find_camera(name: str, dup: int = 1, devices: list[CameraDevice] | None = No
 
 
 def linux_device_path(index: int) -> str:
-    return os.path.join("/dev", f"video{index}")
+    return f"/dev/video{index}"   # Linux 專用路徑，固定用 /，不跟著執行平台變

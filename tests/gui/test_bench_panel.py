@@ -46,11 +46,19 @@ def test_panel_registered_and_empty(gui):
     assert any(a.text() for a in window.menuBar().actions())
 
 
+def _num(text: str) -> float:
+    try:
+        return float(text)
+    except ValueError:
+        return 0.0
+
+
 def test_stats_update(qtbot, gui):
     ctx, window, bench = gui
     h = start_cam(qtbot, window)
     qtbot.waitUntil(lambda: bench._stat_values["samples"].text() not in ("-", "0"), timeout=3000)
-    assert float(bench._stat_values["fps"].text()) > 5
+    # 第一筆樣本出來時 fps 可能還是 0，慢的 CI 機器上更明顯；等它算出來
+    qtbot.waitUntil(lambda: _num(bench._stat_values["fps"].text()) > 5, timeout=3000)
     assert "p95" in bench._stat_values["latency"].text()
     bench.window_spin.setValue(20)
     assert bench.fps_stats.window == 20
