@@ -373,6 +373,7 @@ def test_latency_does_not_grow_10s():
 
 
 @pytest.mark.slow
+@pytest.mark.timeout(400)   # 本身要跑 300 秒，超過 pyproject 預設的 120 秒
 def test_latency_does_not_grow_5min():
     _check_latency(*_latency_run(300.0))
 
