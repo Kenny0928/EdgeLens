@@ -117,5 +117,12 @@
   "gui.list_sep": "、",
   "gui.control.browse_file": "選擇檔案…",
   "gui.control.browse_folder": "選擇資料夾…",
-  "gui.hud.ended": "已播完（可在「相機」面板勾選「循環播放」或按「從頭開始」）"
+  "gui.hud.ended": "已播完（可在「相機」面板勾選「循環播放」或按「從頭開始」）",
+  "gui.source.samples.download": "下載{name}（約 {size}）",
+  "gui.plugins.trust.title": "要載入外掛嗎？",
+  "gui.plugins.trust.text": "這個工作區有 EdgeLens 還沒確認過的外掛。外掛是 Python 程式，在這台電腦上什麼事都做得到，請只載入你知道來源的外掛。",
+  "gui.plugins.trust.new": "新增",
+  "gui.plugins.trust.changed": "已修改",
+  "gui.plugins.trust.load": "載入外掛",
+  "gui.plugins.trust.skip": "這次不載入"
 }

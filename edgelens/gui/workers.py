@@ -36,6 +36,20 @@ _orphan_threads: list[QThread] = []
 DEBOUNCE_MS = 150
 
 
+def prune_orphan_threads() -> int:
+    """移除已經結束的孤兒執行緒（不再需要保活），讓它們的 worker/來源/畫面可以被釋放。"""
+    keep = []
+    for t in _orphan_threads:
+        try:
+            if t.isRunning():
+                keep.append(t)
+        except RuntimeError:   # C++ 物件已刪除
+            pass
+    n = len(_orphan_threads) - len(keep)
+    _orphan_threads[:] = keep
+    return n
+
+
 # ---------------------------------------------------------------- FrameSlot
 
 class FrameSlot:
@@ -473,6 +487,7 @@ class SourceHandle(QObject):
             ok = th.wait(int(timeout * 1000))
             if not ok:
                 log.error("相機執行緒 %s 在 %.1f 秒內沒有停止", self.info.id, timeout)
+                prune_orphan_threads()
                 _orphan_threads.append(th)
                 th.setParent(None)
         self._thread = None

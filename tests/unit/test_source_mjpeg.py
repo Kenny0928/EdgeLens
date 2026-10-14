@@ -417,3 +417,60 @@ def test_param_specs_and_manual_add():
     keys = [s.key for s in MjpegSource.param_specs()]
     assert keys == ["url", "mode", "snapshot_interval_ms", "username", "password"]
     assert MjpegSource.manual_add and MjpegSource.discover() == []
+
+
+# ---- 轉址時不可把 Authorization 送給別的來源 ------------------------------------------
+
+def _redirect_server(location_for, seen):
+    """每個請求都記下 (path, Authorization)；/r 回 302 到 location_for(server)，其餘回 200。"""
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+    class H(BaseHTTPRequestHandler):
+        def do_GET(self):
+            seen.append((self.server.server_port, self.path, self.headers.get("Authorization")))
+            if self.path == "/r":
+                self.send_response(302)
+                self.send_header("Location", location_for(self.server))
+                self.send_header("Content-Length", "0")
+            else:
+                self.send_response(200)
+                self.send_header("Content-Length", "2")
+            self.end_headers()
+            if self.path != "/r":
+                self.wfile.write(b"ok")
+
+        def log_message(self, *a):
+            pass
+
+    srv = ThreadingHTTPServer(("127.0.0.1", 0), H)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    return srv
+
+
+def test_redirect_same_origin_keeps_auth_cross_origin_drops_it():
+    from edgelens.sources.mjpeg import basic_auth_header, http_fetch
+
+    seen: list = []
+    target = _redirect_server(lambda s: "/final", seen)          # 目標伺服器
+    same = _redirect_server(lambda s: "/final", seen)
+    cross = _redirect_server(lambda s: f"http://127.0.0.1:{target.server_port}/final", seen)
+    named = _redirect_server(lambda s: f"http://localhost:{s.server_port}/final", seen)
+    auth = {"Authorization": basic_auth_header("kid", "pw")}
+    try:
+        http_fetch(f"http://127.0.0.1:{same.server_port}/r", headers=auth)
+        assert seen[-1] == (same.server_port, "/final", auth["Authorization"])
+        seen.clear()
+        http_fetch(f"http://127.0.0.1:{cross.server_port}/r", headers=auth)
+        assert seen == [(cross.server_port, "/r", auth["Authorization"]), (target.server_port, "/final", None)]
+        seen.clear()
+        http_fetch(f"http://127.0.0.1:{named.server_port}/r", headers=auth)   # 同埠但 127.0.0.1 -> localhost
+        assert seen[-1][1:] == ("/final", None)
+        seen.clear()
+        # 新網址自己帶帳密就照用
+        userinfo = _redirect_server(lambda s: f"http://a:b@127.0.0.1:{target.server_port}/final", seen)
+        http_fetch(f"http://127.0.0.1:{userinfo.server_port}/r", headers=auth)
+        assert seen[-1][2] == basic_auth_header("a", "b")
+        userinfo.shutdown()
+    finally:
+        for s in (target, same, cross, named):
+            s.shutdown()

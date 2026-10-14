@@ -32,13 +32,13 @@ import edgelens
 from edgelens import i18n
 from edgelens.core.paths import cloud_sync_provider
 from edgelens.core.project import Project, Workspace
-from edgelens.core.registry import load_plugins
 from edgelens.core.results import InferenceResult
 from edgelens.gui.context import AppContext
 from edgelens.gui.inference import InferenceManager, make_color_resolver
 from edgelens.gui.panel_switcher import PanelSwitcher
 from edgelens.gui.panels import discover_panels
 from edgelens.gui.panels.base import Panel
+from edgelens.gui.plugin_trust import load_workspace_plugins
 from edgelens.gui.project_dialog import ProjectDialog
 from edgelens.gui.source_dialog import SourceDialog
 from edgelens.gui.video_view import VideoView
@@ -631,8 +631,11 @@ class MainWindow(QMainWindow):
         self.ctx.workspace = Workspace(path)
         self.ctx.settings.set("workspace.path", str(path))
         self.ctx.settings.set("workspace.last_project", "")
-        if not self.safe_mode:
-            load_plugins(self.ctx.workspace.plugins_dir)
+        # 與啟動時相同：安全模式與「外掛停用」都要尊重，並走信任確認
+        if not self.safe_mode and self.ctx.settings.get("plugins.enabled", True):
+            load_workspace_plugins(
+                self.ctx.settings, self.ctx.workspace.plugins_dir, interactive=self.interactive, parent=self
+            )
         projects = self.ctx.workspace.projects()
         project = projects[0] if projects else self.ctx.workspace.create_project(tr("gui.project.default_name"),
                                                                                 "blank", lang=i18n.current_language())

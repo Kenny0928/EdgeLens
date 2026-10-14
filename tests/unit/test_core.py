@@ -189,6 +189,47 @@ def test_modelcard_darknet_and_numbered_labels(tmp_path):
     assert card.labels == ["person", "car"]
 
 
+def test_modelcard_localized_labels(tmp_path):
+    (tmp_path / "labels.txt").write_text("cup\nchair\n", encoding="utf-8")
+    (tmp_path / "labels.zh_TW.txt").write_text("杯子\n椅子\n", encoding="utf-8")
+    (tmp_path / "short.txt").write_text("杯子\n", encoding="utf-8")
+    card = ModelCard.from_dict({"file": "m.onnx", "labels_file": "labels.txt",
+                                "labels_i18n": {"zh_TW": "labels.zh_TW.txt", "ja": "short.txt", "fr": ["tasse", "chaise"]}},
+                               card_path=tmp_path / "m.card.json")
+    assert card.labels == ["cup", "chair"]
+    assert not card.localize_labels("en")                    # 沒有這個語言：不變
+    assert not card.localize_labels("ja") and card.labels == ["cup", "chair"]   # 數量不符：不換，免得錯位
+    assert card.localize_labels("zh_TW") and card.labels == ["杯子", "椅子"]
+    assert card.labels_base == ["cup", "chair"]
+    assert card.localize_labels("fr") and card.labels == ["tasse", "chaise"]
+    assert card.labels_base == ["cup", "chair"]
+    data = card.to_dict()
+    assert data["labels_file"] == "labels.txt" and "labels" not in data     # 存檔仍是原本的檔案
+    assert data["labels_i18n"]["zh_TW"] == "labels.zh_TW.txt"
+
+
+def test_modelcard_save_elsewhere_keeps_label_files(tmp_path):
+    """內附模型的說明檔存到專案資料夾時，類別檔路徑要跟著改，不然換位置就找不到。"""
+    src = tmp_path / "zoo"
+    src.mkdir()
+    (src / "m.onnx").write_bytes(b"x")
+    (src / "labels.txt").write_text("cup\n", encoding="utf-8")
+    (src / "labels.zh_TW.txt").write_text("杯子\n", encoding="utf-8")
+    card = ModelCard.from_dict({"file": "m.onnx", "labels_file": "labels.txt",
+                                "labels_i18n": {"zh_TW": "labels.zh_TW.txt"},
+                                "thresholds": {"classes": [3, 0]}}, card_path=src / "m.card.json")
+    assert card.class_filter == [3, 0]
+    project = tmp_path / "project" / "models"
+    project.mkdir(parents=True)
+    saved = card.save(project / "m.card.json")
+    again = ModelCard.load(saved)
+    assert again.model_path.resolve() == (src / "m.onnx").resolve()
+    assert again.labels == ["cup"]
+    assert again.localize_labels("zh_TW") and again.labels == ["杯子"]
+    assert again.class_filter == [0, 3]
+    assert "classes" not in ModelCard(name="n", file="n.onnx").to_dict()["thresholds"]
+
+
 def test_preprocess_meta_roundtrip():
     meta = PreprocessMeta(orig_size=(640, 480), input_size=(416, 416), scale=(0.65, 0.65), pad=(0, 52))
     boxes = np.array([[10, 20, 100, 200]], np.float32)

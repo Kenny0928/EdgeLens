@@ -10,6 +10,7 @@ GUI 的用法：
     runner.conf_threshold = 0.4                 # 滑桿隨時可改
     runner.info.guesses                         # 「可能是…」候選與理由
     runner.set_decoder("yolo_t")                # 自動判斷錯了就手動指定
+    runner.class_filter = frozenset({0, 7})     # 只顯示這些類別編號；None＝全部
 
 一個 runner 只在一條執行緒裡使用；門檻屬性可由 GUI 執行緒修改（run 開頭複製到區域變數）。
 """
@@ -28,7 +29,7 @@ from edgelens.core.frame import Frame
 from edgelens.core.modelcard import ModelCard
 from edgelens.core.registry import discover
 from edgelens.core.results import Classification, Detection, InferenceResult
-from edgelens.i18n import tr
+from edgelens.i18n import current_language, tr
 from edgelens.inference.autodetect import FormatGuess, detect_format
 from edgelens.inference.base import (
     BACKENDS,
@@ -87,6 +88,7 @@ def load_model_file(path: str | Path) -> ModelCard:
     - 傳入 .cfg 時改找同名的 .weights。
     - Darknet 的 .weights 找不到同名 .cfg 時，資料夾裡只有一個 .cfg 就用它。
     - 新建立的 Darknet 說明預設用 stretch 縮放（Darknet 訓練時就是直接拉伸，不補邊）。
+    - 說明檔有目前介面語言的類別名稱（labels_i18n）就換成該語言。
     """
     p = Path(path)
     if p.suffix.lower() == ".cfg":
@@ -100,6 +102,7 @@ def load_model_file(path: str | Path) -> ModelCard:
             if len(cfgs) == 1:
                 card.extra_files["config"] = str(cfgs[0].resolve())
         card.input.resize = "stretch"
+    card.localize_labels(current_language())
     return card
 
 
@@ -114,6 +117,7 @@ class InferenceRunner:
         self.nms_threshold: float = card.nms_threshold
         self.max_det: int = card.max_det
         self.class_agnostic: bool = card.class_agnostic_nms
+        self.class_filter: frozenset[int] | None = frozenset(card.class_filter) if card.class_filter else None
         self._decoder: Decoder | None = None
         self._final = False              # True＝已用真實輸出確認過格式（或使用者手動指定）
         self._manual = False
@@ -319,9 +323,10 @@ class InferenceRunner:
         backend = self.backend
         conf, nms_t = float(self.conf_threshold), float(self.nms_threshold)
         max_det, agnostic = int(self.max_det), bool(self.class_agnostic)
+        keep = self.class_filter
         mode = backend.input_mode
         if mode == "device":
-            return self._run_device(frame, conf, t_start)
+            return self._run_device(frame, conf, t_start, keep)
         if mode == "image":
             res = backend.detect_image(frame.image, frame.seq)
             return self._finish_image(res, frame, t_start)
@@ -340,7 +345,7 @@ class InferenceRunner:
                                      top_k=self._top_k(out), image_size=frame.size)
         else:
             result = InferenceResult(kind="detect", model_name=self.card.name, frame_seq=frame.seq,
-                                     detections=self._detections(out, meta, nms_t, max_det, agnostic),
+                                     detections=self._detections(out, meta, nms_t, max_det, agnostic, keep),
                                      image_size=frame.size)
         t4 = time.perf_counter()
         result.timings_ms = {"preprocess": t_pre, "infer": t_inf, "postprocess": (t4 - t3) * 1000.0,
@@ -357,7 +362,12 @@ class InferenceRunner:
         order = np.argsort(-scores, kind="stable")[:TOP_K]
         return [Classification(int(i), float(scores[i]), self._label(int(i))) for i in order]
 
-    def _detections(self, out: DecodeOutput, meta, nms_t: float, max_det: int, agnostic: bool) -> list[Detection]:
+    def _detections(self, out: DecodeOutput, meta, nms_t: float, max_det: int, agnostic: bool,
+                    keep: frozenset[int] | None = None) -> list[Detection]:
+        if keep is not None and len(out.scores):
+            # 在 NMS 之前篩：沒選的類別不會占掉 max_det 的名額，也不會在不分類別 NMS 時壓掉選了的框
+            mask = np.isin(out.class_ids, np.fromiter(keep, dtype=np.int64, count=len(keep)))
+            out = replace(out, boxes=out.boxes[mask], scores=out.scores[mask], class_ids=out.class_ids[mask])
         if len(out.scores) == 0:
             return []
         if out.nms_done:
@@ -385,7 +395,8 @@ class InferenceRunner:
         res.image_size = frame.size
         return res
 
-    def _run_device(self, frame: Frame, conf: float, t_start: float) -> InferenceResult:
+    def _run_device(self, frame: Frame, conf: float, t_start: float,
+                    keep: frozenset[int] | None = None) -> InferenceResult:
         dr = frame.device_result
         kind = "classify" if self.card.task == "classify" else "detect"
         if dr is None:
@@ -393,7 +404,7 @@ class InferenceRunner:
                                   image_size=frame.size, extra={"device_missing": True})
         else:
             dets = [replace(d, label=self._label(d.class_id) if self._labels else (d.label or str(d.class_id)))
-                    for d in dr.detections if d.score >= conf]
+                    for d in dr.detections if d.score >= conf and (keep is None or d.class_id in keep)]
             top = [replace(c, label=self._label(c.class_id) if self._labels else (c.label or str(c.class_id)))
                    for c in dr.top_k]
             res = replace(dr, model_name=self.card.name, frame_seq=frame.seq, where="device",

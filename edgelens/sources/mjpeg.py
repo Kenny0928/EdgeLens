@@ -78,6 +78,7 @@ def open_http(url: str, *, headers: dict[str, str] | None = None, connect_timeou
     拿到 socket 並 shutdown（否則連不上的 IP 會卡住執行緒到逾時）。
     回傳後 socket 逾時已設成 read_timeout，讀串流時逾時只會丟 TimeoutError。
     """
+    origin: tuple[str, str, int] | None = None   # 第一個網址的 (scheme, host, port)
     for _ in range(max_redirects + 1):
         parts = urllib.parse.urlsplit(url.strip())
         scheme = parts.scheme.lower()
@@ -85,11 +86,19 @@ def open_http(url: str, *, headers: dict[str, str] | None = None, connect_timeou
             raise ValueError(f"bad url: {url!r}")
         https = scheme == "https"
         port = parts.port or (443 if https else 80)
+        here = (scheme, parts.hostname.lower(), port)
+        if origin is None:
+            origin = here
         path = parts.path or "/"
         if parts.query:
             path += "?" + parts.query
         hdrs = {"User-Agent": "EdgeLens", "Accept": "*/*", "Connection": "close"}
         hdrs.update(headers or {})
+        # 帳號密碼只屬於原本的主機：轉址到別的來源（或 https 降成 http）時不能跟著送出去，
+        # 否則惡意或設定錯誤的轉址會把 Basic 認證洩漏給第三方；新網址自帶帳密則照常使用
+        upgraded = here[1] == origin[1] and origin[0] == "http" and scheme == "https"   # 升級成 https 無妨
+        if here != origin and not upgraded:
+            hdrs = {k: v for k, v in hdrs.items() if k.lower() != "authorization"}
         if parts.username is not None and "Authorization" not in hdrs:
             hdrs["Authorization"] = basic_auth_header(urllib.parse.unquote(parts.username),
                                                       urllib.parse.unquote(parts.password or ""))
@@ -100,7 +109,9 @@ def open_http(url: str, *, headers: dict[str, str] | None = None, connect_timeou
         try:
             if https:
                 import ssl
-                # 區域網路的相機常用自簽憑證，沒辦法驗證；這裡只傳影像，不傳敏感資料
+                # 取捨：區域網路的相機幾乎都用自簽憑證，驗證憑證會讓它們全部連不上，所以不驗證。
+                # 代價是帳號密碼（Basic 認證）走這條連線時，同一區網內的人可以做中間人攔截；
+                # 教室情境可接受，但不要拿這個來源連到不信任的網路
                 ctx = ssl.create_default_context()
                 ctx.check_hostname = False
                 ctx.verify_mode = ssl.CERT_NONE

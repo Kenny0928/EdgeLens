@@ -92,5 +92,9 @@
   "gui.dataset.export.done": "匯出完成：{path}",
   "gui.dataset.export.next_folders": "下一步：到 Teachable Machine 或 Edge Impulse 建立專案，把 ZIP 解壓縮後，每個資料夾上傳成一個類別。",
   "gui.dataset.export.next_split": "下一步：解壓縮 ZIP，把 train、val、test 資料夾交給 Keras 訓練程式，或上傳到 MaixHub。",
-  "gui.dataset.export.busy_close": "還在匯出，要取消並關閉嗎？"
+  "gui.dataset.export.busy_close": "還在匯出，要取消並關閉嗎？",
+  "gui.dataset.empty_trash": "清空垃圾桶",
+  "gui.dataset.empty_trash_confirm": "要永久刪除垃圾桶裡的 {count} 張照片嗎？刪除後無法復原。",
+  "gui.dataset.trash_emptied": "已永久刪除 {count} 張照片。",
+  "gui.dataset.trash_hint": "已刪除的照片會在刪除 {days} 天後自動移除。"
 }

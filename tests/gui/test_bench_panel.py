@@ -214,3 +214,27 @@ def test_add_inference_reaches_csv(qtbot, gui):
     qtbot.wait(500)
     res = bench.stop_log()
     assert read_csv(res.csv_path)[-1]["infer_label"] == "dog"
+
+
+def test_collector_uses_arrays_and_summary_matches_old_implementation():
+    import random
+    import statistics
+    from array import array
+
+    from edgelens.gui.panels.bench import Collector, percentile
+
+    rnd = random.Random(7)
+    col = Collector()
+    for name, n in (("fps", 1001), ("latency_ms", 1000), ("data.x", 1), ("board.y", 2)):
+        for _ in range(n):
+            col._append(name, rnd.uniform(-50, 500))
+    assert all(isinstance(v, array) and v.typecode == "d" for v in col.series.values())
+    rows = {r["metric"]: r for r in col.summary_rows()}
+    assert list(rows) == list(col.series)
+    for name, vals in col.series.items():
+        s = sorted(vals)
+        old = {"metric": name, "mean": round(statistics.fmean(s), 3), "p50": round(statistics.median(s), 3),
+               "p95": round(percentile(s, 0.95), 3), "max": round(s[-1], 3), "min": round(s[0], 3), "n": len(s)}
+        assert rows[name] == old
+        assert list(rows[name]) == list(old)
+        assert col.mean(name) == pytest.approx(statistics.fmean(s))

@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
+import re
 import stat
 import sys
 import time
@@ -334,3 +335,248 @@ def test_bootstrap_syntax_is_old_python_friendly():
     tree = ast.parse(src, feature_version=(3, 6))
     assert not any(isinstance(n, ast.NamedExpr) for n in ast.walk(tree))
     assert "from __future__ import annotations" not in src
+
+
+# ---------------------------------------------------------------- 精確版本（constraints）
+
+def _constraint_names(path):
+    names = set()
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if line and not line.startswith("#"):
+            names.add(re.split(r"[<>=!~;\s\[]", line)[0].lower().replace("_", "-"))
+    return names
+
+
+def test_constraints_cover_every_top_level_requirement():
+    """requirements/*.txt 新增套件卻忘了在 constraints.txt 釘版本，全班又會變成「安裝當天最新版」。"""
+    pinned = _constraint_names(ROOT / "requirements" / "constraints.txt")
+    for name in ("base.txt", "extra-onnx.txt", "extra-tflite.txt", "extra-k210.txt"):
+        for pkg in _constraint_names(ROOT / "requirements" / name):
+            assert pkg in pinned, f"{name} 的 {pkg} 沒有在 constraints.txt 釘版本"
+
+
+def test_constraints_lines_are_exact_or_bounded():
+    for line in (ROOT / "requirements" / "constraints.txt").read_text(encoding="utf-8").splitlines():
+        line = line.split("#")[0].strip()
+        if not line:
+            continue
+        spec = line.split(";")[0]
+        assert "==" in spec or ("<=" in spec and ">=" in spec), f"不夠精確：{line}"
+
+
+def test_constraints_file_helper(bs, tmp_path):
+    assert bs.constraints_file(str(tmp_path)) is None
+    (tmp_path / "requirements").mkdir()
+    (tmp_path / "requirements" / "constraints.txt").write_text("numpy==2.0.0\n")
+    assert bs.constraints_file(str(tmp_path)) == str(tmp_path / "requirements" / "constraints.txt")
+    assert bs.constraints_file().endswith(os.path.join("requirements", "constraints.txt"))
+
+
+def test_hash_changes_with_constraints(bs, tmp_path):
+    root = _fake_root(tmp_path)
+    h0 = bs.compute_hash(root, (3, 12, 0))
+    (root / "requirements" / "constraints.txt").write_text("numpy==2.0.0\n")
+    h1 = bs.compute_hash(root, (3, 12, 0))
+    assert h1 != h0
+    (root / "requirements" / "constraints.txt").write_text("numpy==2.0.1\n")
+    assert bs.compute_hash(root, (3, 12, 0)) != h1
+
+
+def test_pip_args_include_constraints(bs):
+    cmd = bs.pip_install_args("py", "requirements/base.txt", None, "/c.txt")
+    i = cmd.index("-c")
+    assert cmd[i + 1] == "/c.txt" and cmd.index("install") < i < cmd.index("-r")
+    cmd = bs.pip_install_args("py", "tflite-runtime", "/wh", "/c.txt")
+    assert cmd[cmd.index("-c") + 1] == "/c.txt" and cmd[-1] == "tflite-runtime"
+    assert "-c" not in bs.pip_install_args("py", "x.txt")
+    cmd = bs.pip_download_args("py", "r.txt", "/d", "/c.txt")
+    assert cmd[cmd.index("-c") + 1] == "/c.txt" and cmd[-4:] == ["-d", "/d", "-r", "r.txt"]
+    assert "-c" not in bs.pip_download_args("py", "r.txt", "/d")
+
+
+def test_install_passes_constraints_to_every_pip_call(bs, tmp_path, monkeypatch):
+    """base、每個選配、tflite-runtime 備援都要帶 -c。"""
+    venv = tmp_path / "venv"
+    venv.mkdir()
+    monkeypatch.setattr(bs, "create_venv", lambda v: (True, []))
+    monkeypatch.setattr(bs, "platform_key", lambda plat=None: "macos")
+    seen = []
+
+    def fake_run(cmd, tail_lines=25, show=True):
+        seen.append(cmd)
+        return (1, ["boom"]) if "extra-tflite" in " ".join(cmd) else (0, [])
+
+    monkeypatch.setattr(bs, "run_streaming", fake_run)
+    assert bs.install(bs.parse_args([]), str(venv), str(ROOT)) == 0
+    assert len(seen) == 5  # base、onnx、tflite、tflite-runtime、k210
+    want = str(ROOT / "requirements" / "constraints.txt")
+    for cmd in seen:
+        assert cmd[cmd.index("-c") + 1] == want, cmd
+    assert seen[3][-1] == "tflite-runtime"
+
+
+def test_make_wheelhouse_passes_constraints(bs, tmp_path, monkeypatch):
+    seen = []
+
+    def fake_run(cmd, tail_lines=25, show=True):
+        seen.append(cmd)
+        return (1, ["x"]) if cmd[-1].endswith("extra-tflite.txt") else (0, [])
+
+    monkeypatch.setattr(bs, "run_streaming", fake_run)
+    assert bs.make_wheelhouse(str(tmp_path / "wh"), str(ROOT)) == 0
+    assert len(seen) == 5  # base、onnx、tflite、tflite-runtime 備援、k210
+    for cmd in seen:
+        assert "download" in cmd and cmd[cmd.index("-c") + 1].endswith("constraints.txt"), cmd
+
+
+# ---------------------------------------------------------------- 舊虛擬環境清理
+
+DAY = 86400
+
+
+def _mk_venv(cache, name, age_days=0.0, stamp=True, now=None):
+    now = time.time() if now is None else now
+    d = cache / name
+    (d / "bin").mkdir(parents=True)
+    (d / "bin" / "python").write_text("")
+    t = now - age_days * DAY
+    if stamp:
+        (d / "edgelens_last_used").write_text("x")
+        os.utime(d / "edgelens_last_used", (t, t))
+    os.utime(d, (t, t))
+    return d
+
+
+def test_touch_last_used(bs, tmp_path):
+    venv = tmp_path / "v"
+    venv.mkdir()
+    bs.touch_last_used(str(venv), now=1234)
+    assert (venv / "edgelens_last_used").read_text().strip() == "1234"
+    bs.touch_last_used(str(tmp_path / "missing"))  # 資料夾不存在也不能丟例外
+
+
+def test_cleanup_removes_only_stale_sibling(bs, tmp_path):
+    cur = _mk_venv(tmp_path, "venv-cp313-arm64")
+    old = _mk_venv(tmp_path, "venv-cp312-arm64", age_days=61)
+    recent = _mk_venv(tmp_path, "venv-cp311-arm64", age_days=59)
+    assert bs.cleanup_old_venvs(str(cur), env={}, cache=str(tmp_path)) == ["venv-cp312-arm64"]
+    assert not old.exists() and recent.exists() and cur.exists()
+
+
+def test_cleanup_never_removes_current_even_if_old(bs, tmp_path):
+    cur = _mk_venv(tmp_path, "venv-cp313-arm64", age_days=400)
+    assert bs.cleanup_old_venvs(str(cur), env={}, cache=str(tmp_path)) == []
+    assert cur.exists()
+
+
+def test_cleanup_keeps_non_matching_names(bs, tmp_path):
+    cur = _mk_venv(tmp_path, "venv-cp313-arm64")
+    keep = [_mk_venv(tmp_path, n, age_days=500) for n in
+            ("devvenv", "py310-venv", "wp1-test-venv", "wp1-test-venv312", "venv-cp312", "venv-cp312-", "venv-cpx-arm64",
+             "venv-cp312-ARM64", "xvenv-cp312-arm64", "venv-cp312-arm64.lock", "zoo", "logs")]
+    (tmp_path / "venv-cp310-x86_64").write_text("a file, not a dir")
+    assert bs.cleanup_old_venvs(str(cur), env={}, cache=str(tmp_path)) == []
+    assert all(d.exists() for d in keep) and (tmp_path / "venv-cp310-x86_64").exists()
+
+
+def test_cleanup_stamps_unstamped_venv_instead_of_deleting(bs, tmp_path):
+    """舊版環境沒有 last-used 記號：資料夾時間不可信（還在用的環境根目錄也不會更新），
+    所以先補記號、這次保留，等記號本身過期才刪。"""
+    cur = _mk_venv(tmp_path, "venv-cp313-arm64")
+    old = _mk_venv(tmp_path, "venv-cp310-amd64", age_days=400, stamp=False)
+    assert bs.cleanup_old_venvs(str(cur), env={}, cache=str(tmp_path)) == []
+    assert old.exists() and (old / "edgelens_last_used").exists()
+    later = time.time() + 61 * DAY
+    assert bs.cleanup_old_venvs(str(cur), env={}, cache=str(tmp_path), now=later) == ["venv-cp310-amd64"]
+    assert not old.exists()
+
+
+def test_cleanup_keeps_unstamped_venv_when_stamp_cannot_be_written(bs, tmp_path, monkeypatch):
+    cur = _mk_venv(tmp_path, "venv-cp313-arm64")
+    old = _mk_venv(tmp_path, "venv-cp310-amd64", age_days=400, stamp=False)
+    monkeypatch.setattr(bs, "touch_last_used", lambda *a, **k: None)   # 例如唯讀資料夾
+    later = time.time() + 400 * DAY
+    assert bs.cleanup_old_venvs(str(cur), env={}, cache=str(tmp_path), now=later) == []
+    assert old.exists()
+
+
+def test_cleanup_prefers_last_used_stamp_over_directory_mtime(bs, tmp_path):
+    cur = _mk_venv(tmp_path, "venv-cp313-arm64")
+    d = _mk_venv(tmp_path, "venv-cp312-arm64", age_days=1)  # 剛用過
+    old = time.time() - 300 * DAY
+    os.utime(d, (old, old))  # 資料夾本身很舊，但 last-used 很新
+    assert bs.cleanup_old_venvs(str(cur), env={}, cache=str(tmp_path)) == []
+    assert d.exists()
+
+
+def test_cleanup_skipped_when_edgelens_venv_set(bs, tmp_path):
+    cur = _mk_venv(tmp_path, "venv-cp313-arm64")
+    old = _mk_venv(tmp_path, "venv-cp312-arm64", age_days=400)
+    assert bs.cleanup_old_venvs(str(cur), env={"EDGELENS_VENV": str(cur)}, cache=str(tmp_path)) == []
+    assert old.exists()
+
+
+def test_cleanup_uses_cache_dir_from_env(bs, tmp_path):
+    cur = _mk_venv(tmp_path, "venv-cp313-arm64")
+    old = _mk_venv(tmp_path, "venv-cp312-arm64", age_days=400)
+    assert bs.cleanup_old_venvs(str(cur), env={"EDGELENS_CACHE": str(tmp_path)}) == ["venv-cp312-arm64"]
+    assert not old.exists()
+
+
+def test_cleanup_removal_error_does_not_raise(bs, tmp_path):
+    cur = _mk_venv(tmp_path, "venv-cp313-arm64")
+    stuck = _mk_venv(tmp_path, "venv-cp310-arm64", age_days=400)
+    gone = _mk_venv(tmp_path, "venv-cp311-arm64", age_days=400)
+
+    def remove(path):
+        if path.endswith("cp310-arm64"):
+            raise PermissionError("in use")
+        bs.remove_tree(path)
+
+    assert bs.cleanup_old_venvs(str(cur), env={}, cache=str(tmp_path), remove=remove) == ["venv-cp311-arm64"]
+    assert stuck.exists() and not gone.exists()
+
+
+def test_cleanup_missing_cache_dir_is_fine(bs, tmp_path):
+    assert bs.cleanup_old_venvs(str(tmp_path / "x" / "venv-cp313-arm64"), env={}, cache=str(tmp_path / "none")) == []
+
+
+def test_cleanup_prints_bilingual_note(bs, tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv("EDGELENS_LANG", "en")
+    monkeypatch.setattr(bs, "_ZH", None)
+    cur = _mk_venv(tmp_path, "venv-cp313-arm64")
+    _mk_venv(tmp_path, "venv-cp312-arm64", age_days=400)
+    bs.cleanup_old_venvs(str(cur), env={}, cache=str(tmp_path))
+    assert "venv-cp312-arm64" in capsys.readouterr().out
+    monkeypatch.setenv("EDGELENS_LANG", "zh_TW")
+    monkeypatch.setattr(bs, "_ZH", None)
+    _mk_venv(tmp_path, "venv-cp311-arm64", age_days=400)
+    bs.cleanup_old_venvs(str(cur), env={}, cache=str(tmp_path))
+    assert "舊環境" in capsys.readouterr().out
+
+
+def test_main_touches_stamp_and_cleans_after_install(bs, tmp_path, monkeypatch):
+    cache = tmp_path / "cache"
+    cache.mkdir()
+    cur = _mk_venv(cache, bs.venv_name(), stamp=False)
+    old = _mk_venv(cache, "venv-cp27-arm64", age_days=400)
+    monkeypatch.setenv("EDGELENS_CACHE", str(cache))
+    monkeypatch.delenv("EDGELENS_VENV", raising=False)
+    calls = []
+    monkeypatch.setattr(bs, "ensure_installed", lambda *a, **k: 0)
+    monkeypatch.setattr(bs, "launch", lambda *a, **k: calls.append(a) or 0)
+    assert bs.main([]) == 0
+    assert (cur / "edgelens_last_used").exists() and not old.exists() and calls
+
+
+def test_main_does_not_clean_when_install_fails(bs, tmp_path, monkeypatch):
+    cache = tmp_path / "cache"
+    cache.mkdir()
+    _mk_venv(cache, bs.venv_name(), stamp=False)
+    old = _mk_venv(cache, "venv-cp27-arm64", age_days=400)
+    monkeypatch.setenv("EDGELENS_CACHE", str(cache))
+    monkeypatch.delenv("EDGELENS_VENV", raising=False)
+    monkeypatch.setattr(bs, "ensure_installed", lambda *a, **k: 1)
+    assert bs.main([]) == 1
+    assert old.exists()

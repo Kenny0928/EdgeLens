@@ -11,13 +11,15 @@ from typing import Any
 from PySide6.QtWidgets import QApplication, QMessageBox
 
 from edgelens import APP_NAME, i18n
+from edgelens.core.housekeeping import run_startup_housekeeping
 from edgelens.core.log import current_log_file
 from edgelens.core.paths import default_workspace
 from edgelens.core.project import Project, Workspace
-from edgelens.core.registry import discover, load_plugins
+from edgelens.core.registry import discover
 from edgelens.core.settings import Settings
 from edgelens.gui.context import AppContext
 from edgelens.gui.main_window import MainWindow
+from edgelens.gui.plugin_trust import load_workspace_plugins
 from edgelens.gui.theme import apply_theme
 from edgelens.i18n import tr
 
@@ -109,7 +111,8 @@ def create_app(args: Any = None, *, interactive: bool = False) -> tuple[QApplica
     safe_mode = bool(_arg(args, "safe_mode", False))
     discover()
     if not safe_mode and settings.get("plugins.enabled", True):
-        load_plugins(workspace.plugins_dir)
+        # 外掛要在主視窗建立前載入（它們可能註冊處理步驟），所以確認視窗此時沒有父視窗
+        load_workspace_plugins(settings, workspace.plugins_dir, interactive=interactive)
 
     project = _initial_project(workspace, settings)
     ctx = AppContext(settings, workspace, project)
@@ -120,6 +123,8 @@ def create_app(args: Any = None, *, interactive: bool = False) -> tuple[QApplica
 def run(args: Any = None) -> int:
     app, ctx, window = create_app(args, interactive=True)
     _install_excepthook()
+    # 只在真正啟動時清理：create_app() 給測試用，而暫存清理會掃系統的 temp 資料夾
+    run_startup_housekeeping()
     window.show()
     code = app.exec()
     ctx.save_settings()

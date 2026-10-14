@@ -1,7 +1,7 @@
 {
   "_comment": "WP2 本機來源：檔案、webcam、相機列舉",
   "source.file.name": "影片或圖片檔",
-  "source.file.desc": "用影片檔、單張圖片或一個圖片資料夾當作相機，沒有相機也能練習和測試。",
+  "source.file.desc": "用影片檔、單張圖片或一個圖片資料夾當作相機，沒有相機也能練習和測試。按「尋找」會列出已下載的示範照片。",
   "control.file.path": "檔案或資料夾",
   "control.file.loop": "循環播放",
   "control.file.paused": "暫停",

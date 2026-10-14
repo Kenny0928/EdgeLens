@@ -134,6 +134,59 @@ def test_nms_and_class_agnostic(models):
     assert len(res.detections) == 1 and res.detections[0].class_id == 0
 
 
+def _two_class_runner(card=None):
+    """同一位置兩個類別（0 分數 0.9、1 分數 0.8）的假模型。"""
+    card = card or ModelCard(name="n", file="n.onnx", labels=list(LABELS))
+    a = np.zeros((1, 252, 8), np.float32)
+    a[0, :, 4] = 0.01
+    for row, (cls, sc) in ((10, (0, 0.9)), (11, (1, 0.8))):
+        a[0, row, :4] = (32, 24, 24, 16)
+        a[0, row, 4] = 0.95
+        a[0, row, 5 + cls] = sc
+    return _stub_runner(card, [a], [TensorInfo("o", (1, 252, 8))])
+
+
+def test_class_filter_keeps_only_chosen_classes():
+    r = _two_class_runner()
+    r.class_filter = frozenset({1})
+    assert [d.class_id for d in r.run(_frame()).detections] == [1]
+    r.class_filter = frozenset({2})
+    assert r.run(_frame()).detections == []
+    r.class_filter = None
+    assert len(r.run(_frame()).detections) == 2
+
+
+def test_class_filter_applies_before_nms_and_max_det():
+    """沒選的類別不能在不分類別 NMS 時壓掉選了的框，也不能占掉 max_det 的名額。"""
+    r = _two_class_runner()
+    r.class_agnostic = True
+    r.max_det = 1
+    r.class_filter = frozenset({1})
+    res = r.run(_frame())
+    assert [d.class_id for d in res.detections] == [1]
+
+
+def test_class_filter_from_card():
+    card = ModelCard(name="n", file="n.onnx", labels=list(LABELS), class_filter=[0])
+    r = _two_class_runner(card)
+    assert r.class_filter == frozenset({0})
+    assert [d.class_id for d in r.run(_frame()).detections] == [0]
+
+
+def test_load_model_file_localizes_labels(tmp_path):
+    from edgelens import i18n
+
+    (tmp_path / "labels.txt").write_text("cup\nchair\n", encoding="utf-8")
+    (tmp_path / "labels.zh_TW.txt").write_text("杯子\n椅子\n", encoding="utf-8")
+    (tmp_path / "m.card.json").write_text(
+        '{"version": 1, "file": "m.onnx", "labels_file": "labels.txt", '
+        '"labels_i18n": {"zh_TW": "labels.zh_TW.txt"}}', encoding="utf-8")
+    card = load_model_file(tmp_path / "m.card.json")
+    assert card.labels == ["杯子", "椅子"] and card.labels_base == ["cup", "chair"]
+    i18n.set_language("en")
+    assert load_model_file(tmp_path / "m.card.json").labels == ["cup", "chair"]
+
+
 def test_set_decoder_manual(models):
     r = InferenceRunner(ModelCard.load(models["yolo_flat"]))
     r.load()

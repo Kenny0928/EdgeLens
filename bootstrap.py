@@ -15,6 +15,7 @@ import hashlib
 import json
 import os
 import platform
+import re
 import shutil
 import subprocess
 import sys
@@ -29,6 +30,9 @@ LOCK_MAX_AGE = 30 * 60  # 鎖檔超過 30 分鐘視為過期
 LOCK_POLL = 2.0
 STAMP_NAME = "edgelens_install.json"
 EXTRAS_NAME = "extras.json"
+LAST_USED_NAME = "edgelens_last_used"  # 每次成功啟動就更新；用來判斷舊環境是不是已經沒人用
+VENV_NAME_RE = re.compile(r"^venv-cp\d+-[a-z0-9_-]+$")  # 只清 venv_name() 產生的名稱，其他資料夾一律不碰
+STALE_VENV_DAYS = 60
 EXTRA_KEYS = ("onnx", "tflite", "k210")
 TOTAL_STEPS = 5
 
@@ -169,8 +173,15 @@ def venv_python(venv, plat=None):
 def requirements_files(root=None):
     """會影響安裝結果的 requirements 檔（dev.txt 是開發用，不算）。"""
     req = os.path.join(root or ROOT, "requirements")
-    names = ["base.txt", "extra-onnx.txt", "extra-tflite.txt", "extra-k210.txt"]
+    names = ["base.txt", "extra-onnx.txt", "extra-tflite.txt", "extra-k210.txt", "constraints.txt"]
     return [os.path.join(req, n) for n in names]
+
+
+def constraints_file(root=None):
+    """精確版本檔的路徑；檔案不存在（例如被刪掉）就回傳 None，等於不限制版本。
+    每個 pip install／download 都要帶 -c 這個檔案，全班才會裝到同一組、測試過的版本。"""
+    path = os.path.join(root or ROOT, "requirements", "constraints.txt")
+    return path if os.path.isfile(path) else None
 
 
 def compute_hash(root=None, version=None, bootstrap_version=BOOTSTRAP_VERSION):
@@ -270,9 +281,11 @@ def parse_args(argv):
     return o
 
 
-def pip_install_args(python, target, wheelhouse=None):
+def pip_install_args(python, target, wheelhouse=None, constraints=None):
     """target：requirements 檔路徑（以 -r 安裝）或單一套件規格（例如 tflite-runtime）。"""
     cmd = [python, "-m", "pip", "install", "--disable-pip-version-check", "--progress-bar", "off"]
+    if constraints:
+        cmd += ["-c", constraints]
     if wheelhouse:
         cmd += ["--no-index", "--find-links", wheelhouse]
     if os.path.isfile(target) or target.endswith(".txt"):
@@ -282,9 +295,11 @@ def pip_install_args(python, target, wheelhouse=None):
     return cmd
 
 
-def pip_download_args(python, requirements_file, dest):
-    return [python, "-m", "pip", "download", "--disable-pip-version-check", "--progress-bar", "off",
-            "-d", dest, "-r", requirements_file]
+def pip_download_args(python, requirements_file, dest, constraints=None):
+    cmd = [python, "-m", "pip", "download", "--disable-pip-version-check", "--progress-bar", "off"]
+    if constraints:
+        cmd += ["-c", constraints]
+    return cmd + ["-d", dest, "-r", requirements_file]
 
 
 def launch_env(root=None, env=None):
@@ -453,6 +468,80 @@ def remove_tree(path):
         shutil.rmtree(path, onerror=_onerror)
 
 
+# --------------------------------------------------------------------------- 舊環境清理
+
+def touch_last_used(venv, now=None):
+    """記下「這個環境最近一次成功啟動」。失敗（唯讀、被防毒擋住）不影響啟動。"""
+    try:
+        with open(os.path.join(venv, LAST_USED_NAME), "w") as f:
+            f.write("%d\n" % (time.time() if now is None else now))
+    except (OSError, ValueError):
+        pass
+
+
+def _last_used_time(path, now):
+    """最近使用時間（last-used 檔的修改時間）。
+
+    舊版建立的環境沒有這個檔：不能改看資料夾修改時間，因為 venv 根目錄在平常使用時不會更新，
+    還在用的環境也會看起來很舊。所以第一次遇到時先補一個「現在」的記號、這次不刪；
+    之後真的 STALE_VENV_DAYS 天沒被啟動才會被清掉。補不上記號就永遠不刪（寧可留著）。"""
+    stamp = os.path.join(path, LAST_USED_NAME)
+    try:
+        return os.path.getmtime(stamp)
+    except OSError:
+        pass
+    touch_last_used(path, now)
+    return None
+
+
+def stale_venvs(cache, current, now=None, days=STALE_VENV_DAYS):
+    """cache 底下名稱符合 venv-cpXYZ-架構、不是 current、且超過 days 天沒用過的資料夾（完整路徑）。
+    名稱用嚴格比對：開發者自己放在同一個快取資料夾的 devvenv、py310-venv 等絕對不會被選到。"""
+    now = time.time() if now is None else now
+    try:
+        names = sorted(os.listdir(cache))
+    except OSError:
+        return []
+    cur = os.path.realpath(current)
+    found = []
+    for name in names:
+        path = os.path.join(cache, name)
+        if not VENV_NAME_RE.match(name) or os.path.islink(path) or not os.path.isdir(path):
+            continue
+        if os.path.realpath(path) == cur:
+            continue
+        used = _last_used_time(path, now)
+        if used is not None and now - used > days * 86400:
+            found.append(path)
+    return found
+
+
+def cleanup_old_venvs(current, env=None, cache=None, now=None, remove=None):
+    """Python 升級後，舊版的虛擬環境（約 650 MB）不會再被用到，超過 60 天就刪掉。
+    自訂 EDGELENS_VENV 時完全不動（那是使用者自己管的）。任何錯誤都吞掉：清理失敗絕不能擋住啟動。
+    回傳實際刪掉的資料夾名稱。"""
+    env = os.environ if env is None else env
+    if env.get("EDGELENS_VENV"):
+        return []
+    remove = remove_tree if remove is None else remove
+    removed = []
+    try:
+        for path in stale_venvs(cache if cache is not None else cache_dir(env=env), current, now):
+            try:
+                remove(path)
+            except Exception:  # noqa: BLE001 - 刪不掉（檔案被占用等）下次再試
+                continue
+            if not os.path.exists(path):
+                removed.append(os.path.basename(path))
+    except Exception:  # noqa: BLE001
+        pass
+    if removed:
+        say("已刪除超過 %d 天沒用過的舊環境（釋放硬碟空間）：%s" % (STALE_VENV_DAYS, ", ".join(removed)),
+            "Removed old environments unused for over %d days (frees disk space): %s"
+            % (STALE_VENV_DAYS, ", ".join(removed)))
+    return removed
+
+
 # --------------------------------------------------------------------------- Linux 檢查
 
 _LINUX_LIBS = (
@@ -565,7 +654,7 @@ def install_extra(key, vpy, root, wheelhouse):
         attempts.append(("tflite-runtime", "tflite-runtime"))
     error = ""
     for target, name in attempts:
-        rc, tail = run_streaming(pip_install_args(vpy, target, wheelhouse))
+        rc, tail = run_streaming(pip_install_args(vpy, target, wheelhouse, constraints_file(root)))
         if rc == 0:
             return {"ok": True, "package": name, "error": ""}
         error = (tail[-1] if tail else "pip failed")[:300]
@@ -624,7 +713,8 @@ def install(opts, venv, root=None):
     vpy = venv_python(venv)
 
     step(2, "安裝必要套件（最花時間）...", "Installing required packages (the slow part)...")
-    rc, tail = run_streaming(pip_install_args(vpy, os.path.join(root, "requirements", "base.txt"), wh))
+    rc, tail = run_streaming(pip_install_args(vpy, os.path.join(root, "requirements", "base.txt"), wh,
+                                              constraints_file(root)))
     if rc != 0:
         return fail("必要套件安裝失敗，EdgeLens 無法啟動。", "Required packages failed to install.",
                     failure_hint(tail, wh), tail[-8:])
@@ -673,17 +763,19 @@ def make_wheelhouse(dest, root=None):
     os.makedirs(dest, exist_ok=True)
     say("正在下載套件到 %s（僅適用相同作業系統與 Python %d.%d）..." % ((dest,) + sys.version_info[:2]),
         "Downloading packages to %s (only valid for the same OS and Python %d.%d)..." % ((dest,) + sys.version_info[:2]))
-    rc, tail = run_streaming(pip_download_args(sys.executable, os.path.join(root, "requirements", "base.txt"), dest))
+    cons = constraints_file(root)
+    rc, tail = run_streaming(pip_download_args(sys.executable, os.path.join(root, "requirements", "base.txt"), dest,
+                                               cons))
     if rc != 0:
         return fail("下載必要套件失敗。", "Downloading required packages failed.", failure_hint(tail), tail[-8:])
     for key in EXTRA_KEYS:
         req = os.path.join(root, "requirements", "extra-%s.txt" % key)
-        rc, _ = run_streaming(pip_download_args(sys.executable, req, dest))
+        rc, _ = run_streaming(pip_download_args(sys.executable, req, dest, cons))
         if rc != 0 and key == "tflite":
             tmp = os.path.join(dest, ".tflite-req.txt")
             with open(tmp, "w", encoding="utf-8") as f:
                 f.write("tflite-runtime\n")
-            rc, _ = run_streaming(pip_download_args(sys.executable, tmp, dest))
+            rc, _ = run_streaming(pip_download_args(sys.executable, tmp, dest, cons))
             os.remove(tmp)
         if rc != 0:
             say("    選配 %s 下載失敗，略過。" % key, "    Optional %s failed to download, skipping." % key)
@@ -724,6 +816,8 @@ def main(argv=None):
     if rc != 0:
         return rc
     vpy = venv_python(venv)
+    touch_last_used(venv)
+    cleanup_old_venvs(venv)  # 確認目前的環境可用之後才清舊的，不會把人留在沒有環境的狀態
     if os.environ.get("EDGELENS_BOOTSTRAP_DEBUG"):
         print("bootstrap check: %.2fs" % (time.time() - started))
     rc = launch(vpy, opts.passthrough)

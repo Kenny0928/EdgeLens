@@ -4,7 +4,7 @@
   "gui.panel.compare.title": "比較",
   "gui.model.empty": "請先新增並選取一台相機，才能載入模型做辨識。",
   "gui.model.load": "載入模型…",
-  "gui.model.builtin": "OpenCV 內附偵測器",
+  "gui.model.builtin": "內附模型",
   "gui.model.recent": "最近用過",
   "gui.model.recent.none": "（還沒有）",
   "gui.model.filter": "模型檔",
@@ -94,5 +94,18 @@
   "gui.compare.col.sharpness": "清晰度",
   "gui.compare.col.brightness": "亮度",
   "gui.compare.col.best": "最高分數（類別）",
-  "gui.compare.col.rate": "偵測率"
+  "gui.compare.col.rate": "偵測率",
+  "gui.model.zoo.section": "物件偵測（可下載）",
+  "gui.model.zoo.download": "{name}　下載（約 {size}）",
+  "gui.model.zoo.license": "授權：{license}",
+  "gui.model.zoo.import": "匯入離線模型包…",
+  "gui.model.haar.section": "OpenCV 內附偵測器（不用下載）",
+  "gui.model.filter.all": "顯示的類別：全部…",
+  "gui.model.filter.some": "顯示的類別：{count} / {total}…",
+  "gui.model.filter.title": "只顯示這些類別",
+  "gui.model.filter.note": "勾選要在畫面上顯示的類別，沒勾的就算偵測到也不畫框、不列入統計。可以輸入中文或英文搜尋。",
+  "gui.model.filter.search": "搜尋類別，例如：杯子、cup",
+  "gui.model.filter.check_all": "全選",
+  "gui.model.filter.check_none": "全不選",
+  "gui.model.filter.count": "已選 {count} / {total}"
 }

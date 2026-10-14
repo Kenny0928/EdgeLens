@@ -28,6 +28,7 @@
 |---|---|---|---|
 | YOLOv5 | 以真實模型實測 | yolov5n、yolov5s（ultralytics 官方 v7.0） | `[1, 25200, 85]` → yolo_flat |
 | YOLOv8 | 以真實模型實測 | yolov8n（ultralytics 匯出） | `[1, 84, 8400]` → yolo_t |
+| YOLO26（Objects365） | 以真實模型實測 | yolo26n／s-objv1-150（ultralytics 匯出，EdgeLens「內附模型」） | `[1, 369, 8400]` → yolo_t |
 | YOLOv10 | 以真實模型實測 | yolov10n（onnx-community 轉出） | `[1, 300, 6]` → end2end（已含 NMS） |
 | YOLOX | 以真實模型實測 | yolox_nano、yolox_s（官方，未解碼輸出） | `[1, N, 85]` → yolox_raw |
 | YOLOv2（tiny） | 以真實模型實測 | Tiny YOLOv2 VOC（ONNX Model Zoo） | `[1, 125, 13, 13]` → yolo_grid |
@@ -135,12 +136,15 @@ kmodel 在板子上執行，電腦端只套用信心門檻與類別名稱。
 - 輸入顏色順序 `color`：`RGB`／`BGR`／`GRAY`。YOLOX 官方模型要 `"color": "BGR", "scale": 1.0`（0–255 不正規化）；Tiny YOLOv2（ONNX Zoo）要 `"scale": 1.0`。
 - 分類模型的標準化：`"mean": [0.485, 0.456, 0.406], "std": [0.229, 0.224, 0.225]`（MobileNetV2 ONNX）。
 - 自己指定 YOLOv3／v4 的 anchors：`"decoder": "yolo_grid", "decoder_params": {"anchors_preset": "yolov4_coco"}`，或直接寫 `anchors`。
+- 各語言的類別名稱：`"labels_i18n": {"zh_TW": "labels.zh_TW.txt"}`，順序和 `labels` 相同、數量要一樣；介面是繁中時就顯示中文名稱，存檔與篩選仍用類別編號。
+- 只顯示部分類別：`"thresholds": {"classes": [0, 7]}`（類別編號）。模型面板的「顯示的類別」會幫你寫。
 - Haar 偵測：`"decoder_params": {"scale_factor": 1.1, "min_neighbors": 5, "min_size": [30, 30]}`；`min_neighbors` 越大越嚴格、誤判越少。Haar 沒有真正的信心分數，信心門檻對它不起作用，請調 `min_neighbors`。
 
 ## 5. 匯出建議（學生電腦不需要 PyTorch）
 
 - **YOLOv5／v8／v9／v10／11／12（ultralytics）**：在訓練用的電腦（或 Colab）執行 `yolo export model=best.pt format=onnx imgsz=640`，
   把 `best.onnx` 帶到 EdgeLens 的電腦即可。類別名稱會一起寫進 ONNX，通常不用另外準備。想要含 NMS 的版本才加 `nms=True`。
+- **Objects365 內附模型**：由 `tools/export_objects365.py` 製作（維護者在裝了 ultralytics 8.4 以上的電腦執行）。注意 `yolo26?-objv1` 用的是 Objects365 **v1** 的類別順序，和 ultralytics 的 `Objects365.yaml`（v2）不同；匯出時預設不是 end-to-end，所以用 yolo_t 並由 EdgeLens 做 NMS。
 - **YOLOX**：官方 release 的 `.onnx`（不是 `.pth`）；若自己匯出，請不要加 `--decode_in_inference`（EdgeLens 能處理兩種）。
 - **Teachable Machine**：選「Tensorflow Lite」匯出（Quantized 或 Floating point 都可以），會得到 `model.tflite` 與 `labels.txt`，放在一起。
 - **Darknet 專案**：`.weights`、`.cfg`、`.names` 三個放同資料夾。

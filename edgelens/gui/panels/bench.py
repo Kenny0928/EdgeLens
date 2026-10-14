@@ -8,12 +8,12 @@ frameReady，不依賴「作用中相機」，所以測試途中切換分頁或�
 from __future__ import annotations
 
 import logging
-import statistics
 import time
-from collections import defaultdict
+from array import array
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 from PySide6.QtCore import QObject, Qt, QTimer, QUrl
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (
@@ -52,43 +52,62 @@ SWEEP_TYPES = (ControlType.INT, ControlType.FLOAT, ControlType.ENUM, ControlType
 
 # ---------------------------------------------------------------- 純邏輯（不依賴 GUI）
 
-def percentile(sorted_vals: list[float], q: float) -> float:
+def percentile(sorted_vals: Any, q: float) -> float:
     """和 RollingStats 相同的取法（最近的排名），空清單回傳 0。"""
-    if not sorted_vals:
+    if len(sorted_vals) == 0:
         return 0.0
-    return sorted_vals[round(q * (len(sorted_vals) - 1))]
+    return float(sorted_vals[round(q * (len(sorted_vals) - 1))])
 
 
 class Collector:
-    """收集一段時間的 FPS、延遲、處理耗時，以及 result.data 的數值，最後算出摘要。"""
+    """收集一段時間的 FPS、延遲、處理耗時，以及 result.data 的數值，最後算出摘要。
+
+    每條序列用 array('d')（每筆 8 位元組）而不是 list[float]（每筆約 32 位元組）：長時間測試
+    最長 24 小時，30 fps × 8 條序列用 list 會吃掉近 1 GB，教室的 4 GB 電腦撐不住。"""
 
     def __init__(self) -> None:
-        self.series: dict[str, list[float]] = defaultdict(list)
+        self.series: dict[str, array] = {}
         self.frames = 0
         self.t0 = time.monotonic()
 
+    def _append(self, name: str, v: float) -> None:
+        arr = self.series.get(name)
+        if arr is None:
+            arr = self.series[name] = array("d")
+        arr.append(v)
+
     def add_packet(self, packet: FramePacket) -> None:
         s = packet.stats or {}
-        self.series["fps"].append(float(s.get("fps", 0.0)))
-        self.series["latency_ms"].append(float(s.get("latency_ms", 0.0)))
-        self.series["process_ms"].append(float(s.get("process_ms", 0.0)))
+        self._append("fps", float(s.get("fps", 0.0)))
+        self._append("latency_ms", float(s.get("latency_ms", 0.0)))
+        self._append("process_ms", float(s.get("process_ms", 0.0)))
         for k, v in flatten_data(packet.result.data).items():
-            self.series[k].append(float(v))
+            self._append(k, float(v))
         for k, v in flatten_board(packet.frame.meta or {}).items():
-            self.series[k].append(float(v))
+            self._append(k, float(v))
         self.frames += 1
+
+    def sorted_series(self, name: str) -> np.ndarray:
+        """排序後的 numpy 陣列（缺的序列回傳空陣列）；np.asarray 直接共用 array 的緩衝區，不複製。"""
+        vals = self.series.get(name)
+        return np.sort(np.asarray(vals, dtype=np.float64)) if vals else np.empty(0)
 
     def mean(self, name: str) -> float:
         vals = self.series.get(name)
-        return statistics.fmean(vals) if vals else 0.0
+        return float(np.mean(np.asarray(vals, dtype=np.float64))) if vals else 0.0
 
     def summary_rows(self) -> list[dict[str, Any]]:
         rows = []
         for name, vals in self.series.items():
-            s = sorted(vals)
-            rows.append({"metric": name, "mean": round(statistics.fmean(s), 3),
-                         "p50": round(statistics.median(s), 3), "p95": round(percentile(s, 0.95), 3),
-                         "max": round(s[-1], 3), "min": round(s[0], 3), "n": len(s)})
+            if not len(vals):
+                continue
+            s = self.sorted_series(name)
+            n = len(s)
+            # 中位數沿用 statistics.median 的定義（偶數筆取中間兩個的平均）
+            p50 = float(s[n // 2]) if n % 2 else (float(s[n // 2 - 1]) + float(s[n // 2])) / 2
+            rows.append({"metric": name, "mean": round(float(s.mean()), 3),
+                         "p50": round(p50, 3), "p95": round(float(percentile(s, 0.95)), 3),
+                         "max": round(float(s[-1]), 3), "min": round(float(s[0]), 3), "n": n})
         return rows
 
 
@@ -780,7 +799,7 @@ class BenchPanel(Panel):
         if time.monotonic() - job["t_value"] < job["dwell"]:
             return
         col: Collector = job["collector"]
-        lat = sorted(col.series.get("latency_ms", []))
+        lat = col.sorted_series("latency_ms")
         row: dict[str, Any] = {
             "param": job["spec"].key, "value": job["values"][job["idx"]], "frames": col.frames,
             "fps_mean": round(col.mean("fps"), 3), "latency_ms_mean": round(col.mean("latency_ms"), 3),

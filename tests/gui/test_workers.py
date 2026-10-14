@@ -81,3 +81,24 @@ def test_worker_batches_queued_controls(qtbot):
     worker._drain()
     assert calls == [{"noise": 5, "brightness": 3}, {"gray": True}]
     assert sorted(got) == [("brightness", 3), ("gray", True), ("noise", 5)]
+
+
+def test_prune_orphan_threads_drops_finished():
+    from PySide6.QtCore import QThread
+
+    from edgelens.gui import workers
+
+    class Fake(QThread):
+        def run(self):
+            self.msleep(300)
+
+    done, running = QThread(), Fake()
+    running.start()
+    saved = list(workers._orphan_threads)
+    workers._orphan_threads[:] = [done, running]
+    try:
+        assert workers.prune_orphan_threads() == 1
+        assert workers._orphan_threads == [running]
+    finally:
+        running.wait(2000)
+        workers._orphan_threads[:] = saved

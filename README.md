@@ -8,6 +8,7 @@ EdgeLens is a general-purpose vision teaching tool for junior-high classrooms: c
 
 - **Connect image sources:** built-in and USB webcams, iPhone cameras exposed by the operating system, image/video files, HTTP MJPEG, RTSP, ESP32-CAM, and K210 boards running MaixPy v1. Test patterns and a simulated ESP32-CAM let students practise without hardware.
 - **Explore image processing:** view cameras side by side; crop, resize, filter, threshold, mask colours, and analyse contours or motion. Pick colours, save pipelines, and add Python plugins.
+- **Try object detection right away:** "Built-in models" downloads YOLO26 models trained on Objects365 (365 everyday objects, class names in Traditional Chinese or English) plus sample photos, so no model or camera hunting is needed.
 - **Run classification and detection:** ONNX, TFLite, Darknet (`.weights` plus `.cfg`), TensorFlow/Caffe formats through OpenCV DNN, Haar cascades, and K210 `.kmodel` inference on the board. Decoders cover common YOLO outputs, SSD and MobileNet classification. Compatibility depends on the exported format; see [model support and tested configurations](docs/MODEL_SUPPORT.md).
 - **Build datasets:** class shortcuts, burst/countdown/stillness capture, quality checks, similarity reminders, composition references, multi-camera capture, relabelling, deletion/restoration, splitting and ZIP export.
 - **Record experiments:** FPS, latency, long-duration tests, parameter sweeps, CSV logs and video. Train models on an external platform, then use EdgeLens for testing.

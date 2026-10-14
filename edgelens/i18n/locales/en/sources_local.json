@@ -1,7 +1,7 @@
 {
   "_comment": "WP2 local sources: file, webcam, camera enumeration",
   "source.file.name": "Video or image file",
-  "source.file.desc": "Use a video file, a single image, or a folder of images as a camera. Handy for practice and testing without a camera.",
+  "source.file.desc": "Use a video file, a single image, or a folder of images as a camera. Handy for practice and testing without a camera. Find lists the sample photos you have downloaded.",
   "control.file.path": "File or folder",
   "control.file.loop": "Loop",
   "control.file.paused": "Paused",

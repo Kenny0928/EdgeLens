@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
     QListWidget,
     QListWidgetItem,
     QMenu,
+    QMessageBox,
     QPushButton,
     QSizePolicy,
     QSpinBox,
@@ -34,7 +35,7 @@ from PySide6.QtWidgets import (
 )
 
 from edgelens.dataset.dedupe import find_near_duplicates
-from edgelens.dataset.writer import SampleRecord
+from edgelens.dataset.writer import TRASH_KEEP_DAYS, SampleRecord, dataset_path
 from edgelens.gui.thumbs import (
     THUMB_SIZE,
     BgTask,
@@ -188,7 +189,10 @@ class SampleModel(QAbstractListModel):
         if role == Qt.ItemDataRole.DecorationRole:
             pm = self.cache.get(self._keys[index.row()])
             if pm is None:
-                self.loader.request(self._keys[index.row()], r.path)   # 看得到才載入
+                try:
+                    self.loader.request(self._keys[index.row()], r.path)   # 看得到才載入
+                except ValueError:   # 路徑越界或符號連結指到資料集外：只顯示佔位圖
+                    pass
                 return QIcon(self._placeholder)
             return QIcon(pm)
         if role == Qt.ItemDataRole.ToolTipRole:
@@ -398,12 +402,19 @@ class DatasetBrowser(QDialog):
         self.delete_button = QPushButton()
         self.restore_button = QPushButton()
         self.reveal_button = QPushButton()
-        for w in (self.move_button, self.delete_button, self.restore_button, self.reveal_button):
+        self.empty_trash_button = QPushButton()
+        for w in (self.move_button, self.delete_button, self.restore_button, self.empty_trash_button,
+                  self.reveal_button):
             row.addWidget(w)
         ml.addLayout(row)
+        self.trash_hint = QLabel()
+        self.trash_hint.setWordWrap(True)
+        self.trash_hint.setVisible(False)
+        ml.addWidget(self.trash_hint)
         self.status_label = QLabel()
         self.status_label.setWordWrap(True)
         ml.addWidget(self.status_label)
+        self.empty_trash_button.clicked.connect(self.empty_trash)
         self.delete_button.clicked.connect(self.delete_selected)
         self.restore_button.clicked.connect(self.restore_selected)
         self.reveal_button.clicked.connect(self.reveal_selected)
@@ -448,6 +459,8 @@ class DatasetBrowser(QDialog):
         self.delete_button.setText(tr("common.delete"))
         self.restore_button.setText(tr("gui.dataset.restore"))
         self.reveal_button.setText(tr("gui.dataset.reveal"))
+        self.empty_trash_button.setText(tr("gui.dataset.empty_trash"))
+        self.trash_hint.setText(tr("gui.dataset.trash_hint", days=TRASH_KEEP_DAYS))
         self.processed_button.setText(tr("gui.dataset.show_processed"))
         keep = {c: c.currentData() for c in (self.quality_combo, self.sort_combo)}
         self.quality_combo.blockSignals(True)
@@ -778,7 +791,12 @@ class DatasetBrowser(QDialog):
         r = recs[-1]
         self.processed_button.setEnabled(bool(r.processed_file))
         want = self.processed_button.isChecked() and r.processed_file
-        path = (self.project.dataset_dir / (r.processed_file if want else r.file)) if self.project else None
+        # 讀檔前走 dataset_path，擋掉 ../ 與指到資料集外的符號連結
+        try:
+            path = dataset_path(self.project.dataset_dir, r.processed_file if want else r.file) \
+                if self.project else None
+        except ValueError:
+            path = None
         img = decode_file(path) if path is not None else None
         self.preview.set_image(QPixmap.fromImage(bgr_to_qimage(img)) if img is not None else None)
         text = describe_record(r, self.project)
@@ -793,6 +811,9 @@ class DatasetBrowser(QDialog):
         self.delete_button.setEnabled(sel and not in_trash)
         self.restore_button.setVisible(in_trash)
         self.restore_button.setEnabled(sel and in_trash)
+        self.empty_trash_button.setVisible(in_trash)
+        self.empty_trash_button.setEnabled(in_trash and not self.busy and any(r.deleted for r in self.all_records))
+        self.trash_hint.setVisible(in_trash)
         self.delete_button.setVisible(not in_trash)
         self.move_button.setVisible(not in_trash)
         self.reveal_button.setEnabled(bool(self.selected_records()))
@@ -872,6 +893,39 @@ class DatasetBrowser(QDialog):
         if self.class_filter != DELETED:
             return
         self._run_op("restore", [r.file for r in self.selected_records()], "gui.dataset.restored")
+
+    def empty_trash(self) -> None:
+        """永久刪除垃圾桶裡的全部照片；不可復原，所以先問過，且在背景執行。"""
+        if self.busy or self.writer is None or self.class_filter != DELETED:
+            return
+        count = sum(1 for r in self.all_records if r.deleted)
+        if not count:
+            return
+        answer = QMessageBox.question(self, tr("gui.dataset.empty_trash"),
+                                      tr("gui.dataset.empty_trash_confirm", count=count),
+                                      QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                                      QMessageBox.StandardButton.No)
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+        self.busy = True
+        self._update_buttons()
+        writer = self.writer
+        task = BgTask(lambda _t: writer.purge_trash(None), self)
+        self._tasks.append(task)
+
+        def done(removed, error, t=task):
+            self.busy = False
+            if t in self._tasks:
+                self._tasks.remove(t)
+            if error is not None:
+                self.status_label.setText(tr("gui.dataset.op_failed", count=count, reason=str(error)))
+            else:
+                self.status_label.setText(tr("gui.dataset.trash_emptied", count=removed))
+            self.reload()
+            self.datasetModified.emit()
+
+        task.finished.connect(done)
+        task.start()
 
     def reveal_selected(self) -> None:
         recs = self.selected_records()

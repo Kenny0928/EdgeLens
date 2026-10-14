@@ -30,6 +30,20 @@ COCO80 = "https://raw.githubusercontent.com/AlexeyAB/darknet/master/data/coco.na
 VOC20 = "https://raw.githubusercontent.com/pjreddie/darknet/master/data/voc.names"
 IMAGENET = "https://raw.githubusercontent.com/onnx/models/main/validated/vision/classification/synset.txt"
 ZOO = "https://github.com/onnx/models/raw/main/validated/vision"
+EDGELENS_RELEASE = "https://github.com/Kenny0928/EdgeLens/releases/download/models-v1"
+
+
+def _objects365(size: str) -> TestModel:
+    """EdgeLens「內附模型」的 Objects365 包（tools/export_objects365.py 製作），內容和 App 下載的一樣。"""
+    pack = f"objects365-yolo26{size}"
+    files = [f"{pack}.onnx", "labels.txt", "labels.zh_TW.txt"]
+    return TestModel(
+        f"objects365_yolo26{size}", f"YOLO26{size} Objects365 365 類（EdgeLens 內附模型）", "AGPL-3.0（ultralytics）",
+        [Item(f"{EDGELENS_RELEASE}/{pack}.zip", f"_{pack}.zip", unzip={f: f for f in files})],
+        _card(f"{pack}.onnx", name=f"YOLO26{size} Objects365（365 類）", decoder="yolo_t", labels_file="labels.txt",
+              labels_i18n={"zh_TW": "labels.zh_TW.txt"},
+              input={"size": [640, 640], "color": "RGB", "resize": "letterbox"},
+              thresholds={"conf": 0.35, "nms": 0.45, "max_det": 100}))
 
 
 @dataclass
@@ -135,6 +149,8 @@ MODELS: list[TestModel] = [
               input={"resize": "center_crop", "scale": 1 / 127.5, "mean": [1.0, 1.0, 1.0]})),
 ]
 
+MODELS += [_objects365("n"), _objects365("s")]
+
 IMAGES = [
     ("images/dog.jpg", "https://raw.githubusercontent.com/pjreddie/darknet/master/data/dog.jpg",
      "Darknet 範例圖（狗、腳踏車、卡車）；YOLO 授權"),
@@ -157,6 +173,8 @@ SHA256: dict[str, str] = {
     "mobilenetv2/mobilenetv2-12.onnx": "c0c3f76d93fa3fd6580652a45618618a220fced18babf65774ed169de0432ad5",
     "ssd_mobilenet_tflite/detect.tflite": "e4b118e5e4531945de2e659742c7c590f7536f8d0ed26d135abcfe83b4779d13",
     "mobilenet_tflite/mobilenet_v1_1.0_224_quant.tflite": "ecc3a67c47c5a609ec35f6a58a7d97532834e43df4cb7d3f1204a8164b7d20dd",
+    "objects365_yolo26n/objects365-yolo26n.onnx": "3c1c9d58721f06cb21ad9a95af745b2e8f21fdde9513ef2a473adb60e305daec",
+    "objects365_yolo26s/objects365-yolo26s.onnx": "46a5872782a21f6103dfb2f92436ed9d04dd63e49e4e1e1ffd59cf4cb9b7da74",
 }
 
 

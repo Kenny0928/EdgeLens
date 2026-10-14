@@ -31,15 +31,18 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from edgelens import zoo
 from edgelens.core.controls import ControlSpec, ControlType
 from edgelens.core.registry import discover
 from edgelens.core.results import InferenceResult
+from edgelens.gui.class_filter_dialog import ClassFilterDialog
 from edgelens.gui.control_panel import ControlPanel
 from edgelens.gui.inference import MAX_SESSIONS_PER_CAMERA, InferenceSession
 from edgelens.gui.panels.base import Panel
 from edgelens.gui.raw_output_dialog import RawOutputDialog
 from edgelens.gui.stable import StableLabel
 from edgelens.gui.workers import SourceHandle
+from edgelens.gui.zoo_download import download_item, import_pack
 from edgelens.i18n import tr, tr_or
 from edgelens.inference.backends.haar import builtin_cascades, cascade_display_name
 from edgelens.inference.base import DECODERS
@@ -197,6 +200,9 @@ class ModelPanel(Panel):
         self.threshold_note = QLabel()
         self.threshold_note.setWordWrap(True)
         cl.addWidget(self.threshold_note)
+        self.filter_button = QPushButton()
+        self.filter_button.clicked.connect(self.choose_classes)
+        cl.addWidget(self.filter_button)
 
         # 推論輸入
         irow = QHBoxLayout()
@@ -273,12 +279,23 @@ class ModelPanel(Panel):
         self.raw_button.setText(tr("gui.model.raw"))
         self.save_button.setText(tr("gui.model.save_card"))
         self.thresholds.retranslate()
+        self._refresh_filter_button()
         self._fill_menus()
         self._fill_session_combo()
         self._refresh_info()
 
     def _fill_menus(self) -> None:
         self.builtin_menu.clear()
+        self.builtin_menu.addSection(tr("gui.model.zoo.section"))
+        for item in zoo.items("model"):
+            text = item.title if zoo.is_installed(item) else tr("gui.model.zoo.download", name=item.title,
+                                                                 size=item.size_text)
+            act = self.builtin_menu.addAction(text)
+            act.setToolTip(tr("gui.model.zoo.license", license=item.license))
+            act.triggered.connect(lambda _=False, it=item: self.use_zoo_item(it))
+        self.builtin_menu.addAction(tr("gui.model.zoo.import")).triggered.connect(self.import_zoo_pack)
+        self.builtin_menu.setToolTipsVisible(True)
+        self.builtin_menu.addSection(tr("gui.model.haar.section"))
         for name, path in builtin_cascades().items():
             act = self.builtin_menu.addAction(cascade_display_name(name))
             act.triggered.connect(lambda _=False, p=path: self.load_path(p, builtin=True))
@@ -290,6 +307,23 @@ class ModelPanel(Panel):
             act.triggered.connect(lambda _=False, p=p: self.load_path(p))
         if not recent:
             self.recent_menu.addAction(tr("gui.model.recent.none")).setEnabled(False)
+
+    # ---- 模型庫 -------------------------------------------------------------------
+    def use_zoo_item(self, item: zoo.ZooItem) -> bool:
+        """內附的可下載模型：沒裝就先下載（有進度與取消），裝好後直接載入。"""
+        if not download_item(self, item):
+            return False
+        self._fill_menus()
+        return self.load_path(zoo.card_path(item), builtin=True)
+
+    def import_zoo_pack(self) -> None:
+        """匯入老師帶來的離線包（和線上下載的是同一個 zip）。"""
+        item = import_pack(self)
+        if item is None:
+            return
+        self._fill_menus()
+        if item.kind == "model":
+            self.load_path(zoo.card_path(item), builtin=True)
 
     # ---- 相機與 session -----------------------------------------------------------
     def on_active_source_changed(self, handle: SourceHandle | None) -> None:
@@ -365,6 +399,7 @@ class ModelPanel(Panel):
                   self.input_combo, self.input_label, self.input_note):
             w.setVisible(has)
         self.threshold_note.setVisible(has and bool(self.threshold_note.text()))
+        self._refresh_filter_button()
         if not has:
             self.ambiguous_box.hide()
 
@@ -600,6 +635,33 @@ class ModelPanel(Panel):
             self.threshold_note.setVisible(bool(note))
         else:
             self.thresholds.set_values(values)
+        self._refresh_filter_button()
+
+    # ---- 類別篩選 -----------------------------------------------------------------
+    def _filter_labels(self) -> list[str]:
+        s = self._session
+        if s is None or s.info.task != "detect" or s.info.mode == "image":
+            return []
+        return list(s.info.labels or s.card.labels)
+
+    def _refresh_filter_button(self) -> None:
+        labels = self._filter_labels()
+        self.filter_button.setVisible(len(labels) > 1)
+        if len(labels) > 1 and self._session is not None:
+            chosen = self._session.class_filter
+            self.filter_button.setText(tr("gui.model.filter.all") if not chosen else
+                                       tr("gui.model.filter.some", count=len(chosen), total=len(labels)))
+
+    def choose_classes(self) -> None:
+        """只顯示部分類別（365 類同時畫在畫面上太亂，例如只看「人」和「杯子」）。"""
+        s = self._session
+        labels = self._filter_labels()
+        if s is None or len(labels) < 2:
+            return
+        dlg = ClassFilterDialog(labels, s.card.labels_base, s.class_filter, self)
+        if dlg.exec():
+            s.set_class_filter(dlg.selected())
+            self._refresh_filter_button()
 
     def _on_threshold(self, key: str, value: Any) -> None:
         s = self._session

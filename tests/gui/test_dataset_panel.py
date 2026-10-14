@@ -424,6 +424,7 @@ def test_dataset_changed_signal_refreshes_panel(qtbot, project):
     ctx = StubCtx(project)
     panel = DatasetPanel(ctx, None)
     qtbot.addWidget(panel)
+    panel.show()   # 隱藏時只標記過期、不讀 metadata（見 test_dataset_trash_gui）
     panel.on_project_changed(project)
     before = len(panel._records)
     cid = project.classes[0].id

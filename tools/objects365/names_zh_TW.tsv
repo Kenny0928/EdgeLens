@@ -1,0 +1,368 @@
+# Objects365 v1 類別中英對照（第 N 行資料 = 類別編號 N，順序不能動，和 yolo26?-objv1 模型內的 names 一致）。格式：英文<TAB>繁中。
+# 英文欄必須和模型內的名稱完全一樣，export_objects365.py 會檢查。中文是給國中生看的，盡量用台灣日常用語。
+# 標 ★ 的是翻譯時比較沒把握、請人工確認的項目（確認後把 ★ 和括號說明刪掉即可，程式只取中文第一段）。
+person	人
+sneakers	運動鞋
+chair	椅子
+hat	帽子
+lamp	燈
+bottle	瓶子
+cabinet/shelf	櫃子／架子
+cup	杯子
+car	汽車
+glasses	眼鏡
+picture/frame	畫／相框
+desk	書桌
+handbag	手提包
+street lights	路燈
+book	書
+plate	盤子
+helmet	安全帽
+leather shoes	皮鞋
+pillow	枕頭
+glove	手套
+potted plant	盆栽
+bracelet	手環
+flower	花
+tv	電視
+storage box	收納箱
+vase	花瓶
+bench	長椅
+wine glass	高腳杯
+boots	靴子
+bowl	碗
+dining table	餐桌
+umbrella	雨傘
+boat	小船
+flag	旗子
+speaker	喇叭
+trash bin/can	垃圾桶
+stool	凳子
+backpack	背包
+couch	沙發
+belt	皮帶
+carpet	地毯
+basket	籃子
+towel/napkin	毛巾／餐巾
+slippers	拖鞋
+barrel/bucket	桶子
+coffee table	茶几
+suv	休旅車
+toy	玩具
+tie	領帶
+bed	床
+traffic light	紅綠燈
+pen/pencil	筆
+microphone	麥克風
+sandals	涼鞋
+canned	罐頭
+necklace	項鍊
+mirror	鏡子
+faucet	水龍頭
+bicycle	腳踏車
+bread	麵包
+high heels	高跟鞋
+ring	戒指
+van	廂型車
+watch	手錶
+sink	洗手台
+horse	馬
+fish	魚
+apple	蘋果
+camera	相機
+candle	蠟燭
+teddy bear	泰迪熊
+cake	蛋糕
+motorcycle	機車
+wild bird	野鳥
+laptop	筆電
+knife	刀子
+traffic sign	交通標誌
+cell phone	手機
+paddle	槳
+truck	卡車
+cow	牛
+power outlet	插座
+clock	時鐘
+drum	鼓
+fork	叉子
+bus	公車
+hanger	衣架
+nightstand	床頭櫃
+pot/pan	鍋子
+sheep	綿羊
+guitar	吉他
+traffic cone	三角錐
+tea pot	茶壺
+keyboard	鍵盤
+tripod	三腳架
+hockey	曲棍球
+fan	電風扇
+dog	狗
+spoon	湯匙
+blackboard/whiteboard	黑板／白板
+balloon	氣球
+air conditioner	冷氣
+cymbal	鈸
+mouse	滑鼠
+telephone	電話
+pickup truck	小貨車
+orange	柳橙
+banana	香蕉
+airplane	飛機
+luggage	行李
+skis	雙板滑雪板
+soccer	足球
+trolley	手推車
+oven	烤箱
+remote	遙控器
+baseball glove	棒球手套
+paper towel	擦手紙
+refrigerator	冰箱
+train	火車
+tomato	番茄
+machinery vehicle	工程車
+tent	帳篷
+shampoo/shower gel	洗髮精／沐浴乳
+head phone	頭戴式耳機
+lantern	燈籠
+donut	甜甜圈
+cleaning products	清潔用品
+sailboat	帆船
+tangerine	橘子
+pizza	披薩
+kite	風箏
+computer box	電腦主機
+elephant	大象
+toiletries	盥洗用品
+gas stove	瓦斯爐
+broccoli	花椰菜
+toilet	馬桶
+stroller	嬰兒車
+shovel	鏟子
+baseball bat	球棒
+microwave	微波爐
+skateboard	滑板
+surfboard	衝浪板
+surveillance camera	監視器
+gun	槍
+life saver	救生圈
+cat	貓
+lemon	檸檬
+liquid soap	洗手乳
+zebra	斑馬
+duck	鴨子
+sports car	跑車
+giraffe	長頸鹿
+pumpkin	南瓜
+piano	鋼琴
+stop sign	停車標誌
+radiator	★暖氣片（台灣少見，也可寫「暖爐」）
+converter	★轉接頭（原文 Converter，多半是電源轉接頭）
+tissue	面紙
+carrot	紅蘿蔔
+washing machine	洗衣機
+vent	★通風口（原文 vent）
+cookies	餅乾
+cutting/chopping board	砧板
+tennis racket	網球拍
+candy	糖果
+skating and skiing shoes	溜冰鞋／滑雪鞋
+scissors	剪刀
+folder	資料夾
+baseball	棒球
+strawberry	草莓
+bow tie	領結
+pigeon	鴿子
+pepper	★甜椒／辣椒（原文 Pepper，兩種都有）
+coffee machine	咖啡機
+bathtub	浴缸
+snowboard	單板滑雪板
+suitcase	行李箱
+grapes	葡萄
+ladder	梯子
+pear	梨子
+american football	美式足球
+basketball	籃球
+potato	馬鈴薯
+paint brush	油漆刷
+printer	印表機
+billiards	撞球
+fire hydrant	消防栓
+goose	鵝
+projector	投影機
+sausage	香腸
+fire extinguisher	滅火器
+extension cord	延長線
+facial mask	面膜
+tennis ball	網球
+chopsticks	筷子
+electronic stove and gas stove	電爐／瓦斯爐
+pie	派
+frisbee	飛盤
+kettle	熱水壺
+hamburger	漢堡
+golf club	高爾夫球桿
+cucumber	小黃瓜
+clutch	手拿包
+blender	果汁機
+tong	夾子
+slide	溜滑梯
+hot dog	熱狗
+toothbrush	牙刷
+facial cleanser	洗面乳
+mango	芒果
+deer	鹿
+egg	蛋
+violin	小提琴
+marker	麥克筆
+ship	船
+chicken	雞
+onion	洋蔥
+ice cream	冰淇淋
+tape	膠帶
+wheelchair	輪椅
+plum	李子
+bar soap	肥皂
+scale	秤
+watermelon	西瓜
+cabbage	高麗菜
+router/modem	路由器／數據機
+golf ball	高爾夫球
+pine apple	鳳梨
+crane	起重機
+fire truck	消防車
+peach	桃子
+cello	大提琴
+notepaper	便條紙
+tricycle	三輪車
+toaster	烤麵包機
+helicopter	直升機
+green beans	四季豆
+brush	刷子
+carriage	馬車
+cigar	雪茄
+earphone	耳機
+penguin	企鵝
+hurdle	跨欄
+swing	鞦韆
+radio	收音機
+cd	光碟
+parking meter	停車計時器
+swan	天鵝
+garlic	大蒜
+french fries	薯條
+horn	★號角（原文 horn，銅管樂器的通稱）
+avocado	酪梨
+saxophone	薩克斯風
+trumpet	小號
+sandwich	三明治
+cue	撞球桿
+kiwi fruit	奇異果
+bear	熊
+fishing rod	釣竿
+cherry	櫻桃
+tablet	平板
+green vegetables	青菜
+nuts	堅果
+corn	玉米
+key	鑰匙
+screwdriver	螺絲起子
+globe	地球儀
+broom	掃把
+pliers	鉗子
+volleyball	排球
+hammer	鐵鎚
+eggplant	茄子
+trophy	獎盃
+dates	椰棗
+board eraser	板擦
+rice	米飯
+tape measure/ruler	捲尺／尺
+dumbbell	啞鈴
+hamimelon	哈密瓜
+stapler	釘書機
+camel	駱駝
+lettuce	萵苣
+goldfish	金魚
+meat balls	肉丸
+medal	獎牌
+toothpaste	牙膏
+antelope	羚羊
+shrimp	蝦子
+rickshaw	人力車
+trombone	長號
+pomegranate	石榴
+coconut	椰子
+jellyfish	水母
+mushroom	香菇
+calculator	計算機
+treadmill	跑步機
+butterfly	蝴蝶
+egg tart	蛋塔
+cheese	起司
+pig	豬
+pomelo	柚子
+race car	賽車
+rice cooker	電鍋
+tuba	低音號
+crosswalk sign	行人穿越道標誌
+papaya	木瓜
+hair drier	吹風機
+green onion	蔥
+chips	洋芋片
+dolphin	海豚
+sushi	壽司
+urinal	小便斗
+donkey	驢子
+electric drill	電鑽
+spring rolls	春捲
+tortoise/turtle	烏龜
+parrot	鸚鵡
+flute	長笛
+measuring cup	量杯
+shark	鯊魚
+steak	牛排
+poker card	撲克牌
+binoculars	望遠鏡
+llama	羊駝
+radish	白蘿蔔
+noodles	麵條
+yak	犛牛
+mop	拖把
+crab	螃蟹
+microscope	顯微鏡
+barbell	槓鈴
+bread/bun	餐包
+baozi	包子
+lion	獅子
+red cabbage	紫高麗菜
+polar bear	北極熊
+lighter	打火機
+seal	海豹
+mangosteen	山竹
+comb	梳子
+eraser	橡皮擦
+pitaya	火龍果
+scallop	扇貝
+pencil case	鉛筆盒
+saw	鋸子
+table tennis paddle	桌球拍
+okra	秋葵
+starfish	海星
+eagle	老鷹
+monkey	猴子
+durian	榴槤
+game board	棋盤
+rabbit	兔子
+french horn	法國號
+ambulance	救護車
+asparagus	蘆筍
+hoverboard	電動平衡車
+pasta	義大利麵
+target	標靶
+hotair balloon	熱氣球
+chainsaw	電鋸
+lobster	龍蝦
+iron	熨斗
+flashlight	手電筒

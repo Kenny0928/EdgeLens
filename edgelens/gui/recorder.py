@@ -33,6 +33,7 @@ from typing import Any
 import cv2
 import numpy as np
 
+from edgelens.core.housekeeping import REC_TEMP_PREFIX, temp_base_candidates
 from edgelens.core.paths import ensure_dir, safe_filename
 from edgelens.metrics.csvlog import CsvLogger
 
@@ -66,21 +67,15 @@ def _is_ascii(text: str) -> bool:
 
 def ascii_temp_dir() -> Path:
     """找一個路徑全是 ASCII 的暫存資料夾（Windows 使用者名稱是中文時，預設暫存路徑會失敗）。"""
-    candidates = [Path(tempfile.gettempdir())]
-    if sys.platform.startswith("win"):
-        candidates += [Path(os.environ.get("PUBLIC", "C:/Users/Public")) / "EdgeLensTmp",
-                       Path(os.environ.get("SystemDrive", "C:") + "/") / "EdgeLensTmp"]
-    else:
-        candidates.append(Path("/tmp"))
-    for base in candidates:
+    for base in temp_base_candidates():   # 清單與開機清理共用，兩邊才不會不一致
         if not _is_ascii(str(base)):
             continue
         try:
             ensure_dir(base)
-            return Path(tempfile.mkdtemp(prefix="edgelens_rec_", dir=str(base)))
+            return Path(tempfile.mkdtemp(prefix=REC_TEMP_PREFIX, dir=str(base)))
         except OSError:
             continue
-    return Path(tempfile.mkdtemp(prefix="edgelens_rec_"))
+    return Path(tempfile.mkdtemp(prefix=REC_TEMP_PREFIX))
 
 
 def fourcc_candidates() -> list[tuple[str, str]]:

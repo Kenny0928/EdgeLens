@@ -40,6 +40,11 @@ DETECTORS = [
     ("tiny_yolov2", "tinyyolov2-8.card.json", "yolo_grid", [({"dog"}, DOG), ({"car", "bus"}, TRUCK)]),
     ("yolov4_tiny_darknet", "yolov4-tiny.card.json", "yolo_flat", [({"dog"}, DOG), ({"truck", "car"}, TRUCK)]),
     ("ssd_mobilenet_tflite", "detect.card.json", "tflite_ssd", [({"bicycle"}, BICYCLE)]),
+    # Objects365 內附模型：類別名稱依介面語言（測試預設繁中）顯示
+    ("objects365_yolo26n", "objects365-yolo26n.card.json", "yolo_t",
+     [({"dog", "狗"}, DOG), ({"bicycle", "腳踏車"}, BICYCLE)]),
+    ("objects365_yolo26s", "objects365-yolo26s.card.json", "yolo_t",
+     [({"dog", "狗"}, DOG), ({"bicycle", "腳踏車"}, BICYCLE), ({"van", "car", "suv", "廂型車", "汽車", "休旅車"}, TRUCK)]),
 ]
 CLASSIFIERS = [
     ("mobilenetv2", "mobilenetv2-12.card.json", {"malamute", "eskimo dog", "siberian husky"}),

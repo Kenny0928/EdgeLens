@@ -21,8 +21,10 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from edgelens import zoo
 from edgelens.gui.context import AppContext
 from edgelens.gui.control_panel import ControlPanel
+from edgelens.gui.zoo_download import download_item
 from edgelens.i18n import component_description, component_name, tr
 from edgelens.sources.base import SOURCES, FrameSource, SourceInfo
 
@@ -89,7 +91,11 @@ class SourceDialog(QDialog):
         self.busy.setRange(0, 0)
         self.busy.setMaximumHeight(14)
         self.busy.hide()
+        self.samples_button = QPushButton()
+        self.samples_button.clicked.connect(self.download_samples)
+        self.samples_button.hide()
         row.addWidget(self.find_button)
+        row.addWidget(self.samples_button)
         row.addWidget(self.busy, 1)
         rlay.addLayout(row)
         self.result_list = QListWidget()
@@ -174,6 +180,25 @@ class SourceDialog(QDialog):
         self.manual_box.setVisible(cls.manual_add)
         self.manual_panel.set_specs(specs, {})
         self.manual_box.setVisible(bool(cls.manual_add))
+        self._refresh_samples_button()
+
+    # ---- 示範照片 -----------------------------------------------------------------
+    def _missing_samples(self) -> list[zoo.ZooItem]:
+        return [it for it in zoo.items("samples") if it.sha256 and not zoo.is_installed(it)]
+
+    def _refresh_samples_button(self) -> None:
+        missing = self._missing_samples() if self._kind == "file" else []
+        self.samples_button.setVisible(bool(missing))
+        if missing:
+            self.samples_button.setText(tr("gui.source.samples.download", name=missing[0].title,
+                                           size=missing[0].size_text))
+
+    def download_samples(self) -> None:
+        """沒有相機也能馬上試物件偵測：下載示範照片，裝好後直接列在尋找結果裡。"""
+        missing = self._missing_samples()
+        if missing and download_item(self, missing[0]):
+            self._refresh_samples_button()
+            self.start_discover()
 
     # ---- 尋找 -------------------------------------------------------------------
     def start_discover(self) -> None:

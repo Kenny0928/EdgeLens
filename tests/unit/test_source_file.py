@@ -376,3 +376,10 @@ def test_windows_nonascii_path_copies_to_temp_when_no_short_path(tmp_path, monke
 def test_non_windows_uses_original_path(tmp_path, monkeypatch):
     monkeypatch.setattr(fs, "_is_windows", lambda: False)
     assert fs.openable_video_path("/tmp/中文.mp4") == ("/tmp/中文.mp4", None)
+
+
+def test_video_temp_prefix_shared_with_housekeeping():
+    from edgelens.core import housekeeping
+    from edgelens.sources import file as file_mod
+
+    assert file_mod.VIDEO_TEMP_PREFIX == housekeeping.VIDEO_TEMP_PREFIX

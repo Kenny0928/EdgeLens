@@ -23,7 +23,7 @@ DEFAULTS: dict[str, Any] = {
     "version": SETTINGS_VERSION,
     "ui": {"language": "zh_TW", "theme": "system", "show_advanced": False},
     "workspace": {"path": "", "last_project": ""},
-    "plugins": {"enabled": True},
+    "plugins": {"enabled": True, "trusted": {}},
     "sources": {},
     "recent": {"models": [], "pipelines": [], "sources": []},
 }

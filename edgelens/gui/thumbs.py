@@ -9,6 +9,7 @@ from __future__ import annotations
 import atexit
 import hashlib
 import logging
+import os
 import subprocess
 import sys
 import threading
@@ -179,6 +180,10 @@ class ThumbLoader(QObject):
         img = decode_file(cache_file) if cache_file.is_file() else None
         if img is not None:
             self.disk_hits += 1
+            try:   # 讓 mtime 近似「最後使用時間」，prune_thumb_cache 才會先刪最久沒用的
+                os.utime(cache_file)
+            except OSError:
+                pass
         else:
             img = make_thumb(path, self.size)
             if img is None:
@@ -199,7 +204,7 @@ class ThumbLoader(QObject):
 class PixmapCache:
     """記憶體中的縮圖（LRU），避免捲動時反覆從磁碟讀。"""
 
-    def __init__(self, capacity: int = 4000):
+    def __init__(self, capacity: int = 1000):
         self.capacity = capacity
         self._items: OrderedDict[str, QPixmap] = OrderedDict()
 

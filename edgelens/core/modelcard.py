@@ -18,9 +18,11 @@
   "decoder": "auto",                 // yolo_t、yolo_flat、yolo_grid、end2end、tflite_ssd、classify…
   "decoder_params": {},              // 例如 {"anchors": [...], "strides": [8,16,32]}
   "labels": ["person", "bicycle"],   // 或 "labels_file": "labels.txt"
+  "labels_i18n": {"zh_TW": "labels.zh_TW.txt"},   // 選填：各語言的類別名稱（檔名或清單），順序同 labels
   "input": {"size": [640, 640], "layout": "auto", "color": "RGB", "resize": "letterbox",
             "scale": 0.00392156862745098, "mean": [0,0,0], "std": [1,1,1], "pad_value": 114, "dtype": "auto"},
-  "thresholds": {"conf": 0.25, "nms": 0.45, "max_det": 100, "class_agnostic": false},
+  "thresholds": {"conf": 0.25, "nms": 0.45, "max_det": 100, "class_agnostic": false,
+                 "classes": [0, 7]},     // 選填：只顯示這些類別編號，省略＝全部
   "extra_files": {"config": "yolov4-tiny.cfg"},
   "device": {},                      // 板上推論設定（例如 K210 的 anchors）
   "notes": ""
@@ -96,11 +98,14 @@ class ModelCard:
     decoder_params: dict[str, Any] = field(default_factory=dict)
     labels: list[str] = field(default_factory=list)
     labels_file: str = ""
+    labels_i18n: dict[str, Any] = field(default_factory=dict)
+    labels_base: list[str] = field(default_factory=list, repr=False)   # 換成別的語言前的原始名稱（不存檔）
     input: InputSpec = field(default_factory=InputSpec)
     conf_threshold: float = 0.25
     nms_threshold: float = 0.45
     max_det: int = 100
     class_agnostic_nms: bool = False
+    class_filter: list[int] = field(default_factory=list)   # 只顯示這些類別編號；空＝全部
     extra_files: dict[str, str] = field(default_factory=dict)
     device: dict[str, Any] = field(default_factory=dict)
     notes: str = ""
@@ -150,19 +155,27 @@ class ModelCard:
             c.format(stem=self.model_path.stem) for c in LABEL_FILE_CANDIDATES]
         for cand in candidates:
             p = self.resolve(cand)
-            if p.is_file() and p.suffix.lower() in (".txt", ".names", ""):
-                try:
-                    lines = p.read_text(encoding="utf-8-sig").splitlines()
-                except (OSError, UnicodeDecodeError):
-                    continue
-                labels = [ln.strip() for ln in lines if ln.strip() and not ln.lstrip().startswith("#")]
-                # labels.txt 可能是 "0 person" 的格式
-                if labels and all(ln.split(" ", 1)[0].isdigit() and " " in ln for ln in labels):
-                    labels = [ln.split(" ", 1)[1].strip() for ln in labels]
-                if labels:
-                    self.labels = labels
-                    self.labels_file = str(p.name) if p.parent == self.base_dir else str(p)
-                    return
+            labels = _read_label_file(p)
+            if labels:
+                self.labels = labels
+                self.labels_file = str(p.name) if p.parent == self.base_dir else str(p)
+                return
+
+    def localize_labels(self, lang: str) -> bool:
+        """有 labels_i18n[lang] 就把 labels 換成該語言的名稱（例如繁中）。數量和原本不同時不換，
+        免得名稱錯位。只改記憶體裡的 labels，存檔時仍寫原本的 labels_file，回傳是否有換。"""
+        entry = self.labels_i18n.get(lang)
+        if isinstance(entry, list):
+            names = [str(x) for x in entry]
+        elif isinstance(entry, str) and entry:
+            names = _read_label_file(self.resolve(entry))
+        else:
+            return False
+        if not names or (self.labels and len(names) != len(self.labels)):
+            return False
+        self.labels_base = self.labels_base or list(self.labels)
+        self.labels = names
+        return True
 
     # ---- 存讀 ------------------------------------------------------------------
 
@@ -177,7 +190,8 @@ class ModelCard:
             "decoder_params": dict(self.decoder_params),
             "input": self.input.to_dict(),
             "thresholds": {"conf": self.conf_threshold, "nms": self.nms_threshold, "max_det": self.max_det,
-                           "class_agnostic": self.class_agnostic_nms},
+                           "class_agnostic": self.class_agnostic_nms,
+                           **({"classes": sorted(self.class_filter)} if self.class_filter else {})},
             "extra_files": dict(self.extra_files),
             "device": dict(self.device),
             "notes": self.notes,
@@ -186,6 +200,8 @@ class ModelCard:
             d["labels_file"] = self.labels_file
         else:
             d["labels"] = list(self.labels)
+        if self.labels_i18n:
+            d["labels_i18n"] = dict(self.labels_i18n)
         return d
 
     @classmethod
@@ -205,11 +221,13 @@ class ModelCard:
             decoder_params=dict(d.get("decoder_params", {})),
             labels=list(labels) if isinstance(labels, list) else [],
             labels_file=d.get("labels_file", labels if isinstance(labels, str) else ""),
+            labels_i18n=dict(d.get("labels_i18n") or {}),
             input=InputSpec.from_dict(d.get("input", {})),
             conf_threshold=float(th.get("conf", 0.25)),
             nms_threshold=float(th.get("nms", 0.45)),
             max_det=int(th.get("max_det", 100)),
             class_agnostic_nms=bool(th.get("class_agnostic", False)),
+            class_filter=[int(x) for x in th.get("classes") or []],
             extra_files=dict(d.get("extra_files", {})),
             device=dict(d.get("device", {})),
             notes=d.get("notes", ""),
@@ -243,17 +261,35 @@ class ModelCard:
     def save(self, path: str | Path | None = None) -> Path:
         """存成說明檔；預設存在模型旁邊。file 會改成相對路徑（模型和說明檔一起搬也能用）。"""
         target = Path(path) if path else (self.card_path or self.default_card_path())
-        mp = self.model_path.resolve()
-        try:
-            self.file = str(mp.relative_to(target.parent.resolve()))
-        except ValueError:
-            self.file = str(mp)
-        for key, rel in list(self.extra_files.items()):
-            ep = self.resolve(rel).resolve()
+        folder = target.parent.resolve()
+
+        def rebase(rel: str) -> str:
+            full = self.resolve(rel).resolve()
             try:
-                self.extra_files[key] = str(ep.relative_to(target.parent.resolve()))
+                return str(full.relative_to(folder))
             except ValueError:
-                self.extra_files[key] = str(ep)
+                return str(full)
+
+        # 先全部用舊位置算好再一起改（改了 file 之後 base_dir 就變了）
+        file = rebase(self.file)
+        extra = {key: rebase(rel) for key, rel in self.extra_files.items()}
+        labels_file = rebase(self.labels_file) if self.labels_file else ""
+        i18n = {lang: rebase(e) if isinstance(e, str) and e else e for lang, e in self.labels_i18n.items()}
+        self.file, self.extra_files, self.labels_file, self.labels_i18n = file, extra, labels_file, i18n
         self.card_path = target
         atomic_write_text(target, json.dumps(self.to_dict(), ensure_ascii=False, indent=2))
         return target
+
+
+def _read_label_file(p: Path) -> list[str]:
+    """一行一個類別名稱；略過空行與 # 開頭的行，也接受 "0 person" 的格式。讀不到回傳空清單。"""
+    if not p.is_file() or p.suffix.lower() not in (".txt", ".names", ""):
+        return []
+    try:
+        lines = p.read_text(encoding="utf-8-sig").splitlines()
+    except (OSError, UnicodeDecodeError):
+        return []
+    labels = [ln.strip() for ln in lines if ln.strip() and not ln.lstrip().startswith("#")]
+    if labels and all(ln.split(" ", 1)[0].isdigit() and " " in ln for ln in labels):
+        labels = [ln.split(" ", 1)[1].strip() for ln in labels]
+    return labels

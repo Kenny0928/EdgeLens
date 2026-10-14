@@ -22,6 +22,7 @@ import numpy as np
 
 from edgelens.core.controls import ControlResult, ControlSpec, ControlType
 from edgelens.core.frame import Frame
+from edgelens.core.housekeeping import VIDEO_TEMP_PREFIX
 from edgelens.i18n import tr
 from edgelens.sources.base import FrameSource, SourceCapabilities, SourceError, SourceInfo, register_source
 
@@ -31,6 +32,7 @@ VIDEO_EXTS = {".mp4", ".avi", ".mov", ".mkv", ".webm", ".m4v", ".wmv", ".flv", "
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".bmp", ".webp", ".tif", ".tiff"}
 JPEG_EXTS = {".jpg", ".jpeg"}
 DEFAULT_IMAGE_FPS = 5.0
+SAMPLES_FPS = 0.5           # 示範照片：每張停 2 秒，來得及看清楚框
 
 
 def natural_key(name: str) -> list[Any]:
@@ -138,7 +140,7 @@ def openable_video_path(path: str) -> tuple[str, str | None]:
     short = _short_path(path)
     if short and short.isascii():
         return short, None
-    tmpdir = tempfile.mkdtemp(prefix="edgelens_")
+    tmpdir = tempfile.mkdtemp(prefix=VIDEO_TEMP_PREFIX)
     dst = os.path.join(tmpdir, "video" + Path(path).suffix.lower())
     shutil.copyfile(path, dst)
     return dst, tmpdir
@@ -231,6 +233,18 @@ class FileSource(FrameSource):
         self._delivered = 0
 
     # ---- 類別層級 ------------------------------------------------------------------
+
+    @classmethod
+    def discover(cls, timeout: float = 2.0) -> list[SourceInfo]:
+        """已下載的示範照片（模型庫，例如 Objects365）；其他檔案請用手動加入選路徑。"""
+        from edgelens import zoo
+
+        found = []
+        for item, folder in zoo.installed_samples():
+            info = cls.info_from_params({"path": str(folder), "fps": SAMPLES_FPS, "loop": True})
+            info.name = item.title
+            found.append(info)
+        return found
 
     @classmethod
     def param_specs(cls) -> list[ControlSpec]:

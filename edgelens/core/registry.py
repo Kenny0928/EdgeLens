@@ -16,13 +16,14 @@ discover() 會匯入內建套件裡的所有模組，讓 decorator 執行；load
 
 from __future__ import annotations
 
+import hashlib
 import importlib
 import importlib.util
 import logging
 import pkgutil
 import sys
 import traceback
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Generic, TypeVar
@@ -138,18 +139,45 @@ def discover(force: bool = False) -> None:
     _discovered = True
 
 
-def load_plugins(folder: str | Path) -> list[str]:
+def plugin_files(folder: str | Path) -> list[Path]:
+    """folder 第一層的外掛檔（*.py，不含 _ 開頭），依檔名排序。載入與信任檢查共用，確保兩邊看到同一批檔案。"""
+    folder = Path(folder)
+    if not folder.is_dir():
+        return []
+    return [p for p in sorted(folder.glob("*.py")) if not p.name.startswith("_") and p.is_file()]
+
+
+def file_sha256(path: str | Path) -> str:
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 16), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def plugin_hashes(folder: str | Path) -> dict[str, str]:
+    """{檔名: sha256}。讀不到的檔案略過（之後載入時自然會失敗並記錄）。"""
+    out: dict[str, str] = {}
+    for p in plugin_files(folder):
+        try:
+            out[p.name] = file_sha256(p)
+        except OSError:
+            continue
+    return out
+
+
+def load_plugins(folder: str | Path, only: Iterable[str] | None = None) -> list[str]:
     """匯入 folder 裡的每個 .py（不含 _ 開頭的檔案），回傳成功載入的模組名稱。
 
     外掛就是一般的 Python 檔，用同樣的 decorator 註冊元件，例如學生自己寫的處理步驟。
     同名的外掛重新載入時會先移除舊模組。失敗的外掛記在 import_problems，不會讓程式當掉。
+    only 不是 None 時只載入名單內的檔名（信任檢查用：沒被核准的檔案不能執行）。
     """
     folder = Path(folder)
     loaded: list[str] = []
-    if not folder.is_dir():
-        return loaded
-    for path in sorted(folder.glob("*.py")):
-        if path.name.startswith("_"):
+    allowed = None if only is None else set(only)
+    for path in plugin_files(folder):
+        if allowed is not None and path.name not in allowed:
             continue
         mod_name = f"edgelens_plugins.{path.stem}"
         sys.modules.pop(mod_name, None)

@@ -6,6 +6,7 @@ metadata.jsonl 的修改時間與大小，有變才重新讀取。
 
 from __future__ import annotations
 
+import logging
 import time
 
 from PySide6.QtCore import QSize, Qt, QTimer
@@ -21,6 +22,7 @@ from PySide6.QtWidgets import (
 )
 
 from edgelens.dataset.stats import dataset_stats
+from edgelens.dataset.writer import TRASH_KEEP_DAYS
 from edgelens.gui.dataset_browser import DatasetBrowser, SampleModel, color_pixmap
 from edgelens.gui.export_dialog import ExportDialog
 from edgelens.gui.panels.base import Panel
@@ -34,6 +36,8 @@ from edgelens.gui.thumbs import (
     shared_writer,
 )
 from edgelens.i18n import current_language, tr
+
+log = logging.getLogger(__name__)
 
 RECENT = 9
 RECENT_SIZE = 72
@@ -55,8 +59,11 @@ class DatasetPanel(Panel):
         self._records = []
         self._rebuild_task: BgTask | None = None
         self.count_labels: dict[str, QLabel] = {}
-        # 拍照面板存檔後會發出 datasetChanged，立刻更新張數；輪詢（_poll）保留作保險
-        ctx.datasetChanged.connect(lambda: self.refresh(force=True))
+        self._stale = False
+        self._purge_task: BgTask | None = None
+        # 拍照面板存檔後會發出 datasetChanged，立刻更新張數；輪詢（_poll）保留作保險。
+        # 面板看不到時只記「過期」，等顯示時再讀：讀整份 metadata 會隨照片變多而卡住拍照。
+        ctx.datasetChanged.connect(self._on_dataset_changed)
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
@@ -131,10 +138,38 @@ class DatasetPanel(Panel):
             self.recent_view.setModel(self.recent_model)
         self.status_label.setText("")
         self.refresh(force=True)
+        self._purge_old_trash()
+
+    def _purge_old_trash(self) -> None:
+        """開啟專案時在背景清掉超過 TRASH_KEEP_DAYS 天的垃圾桶照片，不阻塞介面。"""
+        if self.project is None:
+            return
+        writer = shared_writer(self.project)
+        task = BgTask(lambda _t: writer.purge_trash(TRASH_KEEP_DAYS), self)
+        self._purge_task = task
+
+        def done(removed, error, t=task):
+            if self._purge_task is t:
+                self._purge_task = None
+            if error is not None:
+                log.warning("自動清理垃圾桶失敗：%s", error)
+                return
+            log.info("自動清理垃圾桶：移除 %s 張超過 %d 天的照片", removed, TRASH_KEEP_DAYS)
+            if removed:
+                self._on_dataset_changed()
+
+        task.finished.connect(done)
+        task.start()
+
+    def _on_dataset_changed(self) -> None:
+        if self.isVisible():
+            self.refresh(force=True)
+        else:
+            self._stale = True
 
     def showEvent(self, e):
         super().showEvent(e)
-        self.refresh()
+        self.refresh(force=self._stale)
 
     def _poll(self) -> None:
         if self.isVisible():
@@ -149,6 +184,7 @@ class DatasetPanel(Panel):
         sig = metadata_signature(self.project)
         if not force and sig == self._sig:
             return
+        self._stale = False
         self._sig = sig
         try:
             self._records = shared_writer(self.project).list_samples()
@@ -238,7 +274,7 @@ class DatasetPanel(Panel):
             return None
         if self.browser is None:
             self.browser = DatasetBrowser(self.ctx, self.project, self.window())
-            self.browser.datasetModified.connect(lambda: self.refresh(force=True))
+            self.browser.datasetModified.connect(self._on_dataset_changed)
         if isinstance(file, str):
             self.browser.open_sample(file)
         else:

@@ -16,7 +16,7 @@ import queue
 import threading
 import time
 from collections import deque
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from typing import Any
 
 from PySide6.QtCore import QObject, Signal
@@ -70,7 +70,8 @@ class InferenceSession(QObject):
         self._age = 0
         self._lock = threading.Lock()
         self._th: dict[str, Any] = {"conf": self.card.conf_threshold, "nms": self.card.nms_threshold,
-                                    "max_det": self.card.max_det, "class_agnostic": self.card.class_agnostic_nms}
+                                    "max_det": self.card.max_det, "class_agnostic": self.card.class_agnostic_nms,
+                                    "classes": frozenset(self.card.class_filter) if self.card.class_filter else None}
         self._cmds: queue.Queue = queue.Queue()
         self._raw_req = threading.Event()
         self._stop = threading.Event()
@@ -118,6 +119,18 @@ class InferenceSession(QObject):
             for key, val in (("conf", conf), ("nms", nms), ("max_det", max_det), ("class_agnostic", class_agnostic)):
                 if val is not None:
                     self._th[key] = val
+
+    def set_class_filter(self, class_ids: Iterable[int] | None) -> None:
+        """只顯示這些類別編號；None 或空＝全部。也記在 card 上，存說明檔時一起存。"""
+        ids = frozenset(int(i) for i in class_ids) if class_ids else None
+        with self._lock:
+            self._th["classes"] = ids
+        self.card.class_filter = sorted(ids) if ids else []
+
+    @property
+    def class_filter(self) -> frozenset[int] | None:
+        with self._lock:
+            return self._th["classes"]
 
     @property
     def thresholds(self) -> dict[str, Any]:
@@ -202,6 +215,7 @@ class InferenceSession(QObject):
                 th = dict(self._th)
             runner.conf_threshold, runner.nms_threshold = float(th["conf"]), float(th["nms"])
             runner.max_det, runner.class_agnostic = int(th["max_det"]), bool(th["class_agnostic"])
+            runner.class_filter = th["classes"]
             try:
                 frame = packet.frame
                 if self.use_processed:

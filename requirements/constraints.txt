@@ -1,0 +1,42 @@
+# 精確版本（constraints）：只限制「版本」，不會自己多裝東西。
+# bootstrap 每次 pip install／pip download 都會帶 -c 這個檔案，全班電腦裝到一模一樣的版本。
+# requirements/*.txt 與 pyproject.toml 維持範圍；怎麼升版請看 docs/DEVELOPMENT.md。
+PySide6-Essentials==6.9.3; sys_platform != "linux"
+shiboken6==6.9.3; sys_platform != "linux"
+PySide6-Essentials>=6.8.0.2,<=6.9.3; sys_platform == "linux"
+shiboken6>=6.8.0.2,<=6.9.3; sys_platform == "linux"
+opencv-python-headless==4.14.0.94; sys_platform != "darwin"
+opencv-python-headless>=4.10.0.84,<=4.14.0.94; sys_platform == "darwin"
+numpy==2.2.6; python_version < "3.12"
+numpy==2.5.3; python_version >= "3.12" and sys_platform != "linux"
+numpy>=2.2.6,<=2.5.3; python_version >= "3.12" and sys_platform == "linux"
+pyserial==3.5
+cv2-enumerate-cameras==1.4.0
+pyobjc-core==12.2.2; sys_platform == "darwin"
+pyobjc-framework-AVFoundation==12.2.2; sys_platform == "darwin"
+pyobjc-framework-Cocoa==12.2.2; sys_platform == "darwin"
+pyobjc-framework-CoreAudio==12.2.2; sys_platform == "darwin"
+pyobjc-framework-CoreMedia==12.2.2; sys_platform == "darwin"
+pyobjc-framework-Quartz==12.2.2; sys_platform == "darwin"
+onnxruntime==1.23.2; python_version < "3.11" and sys_platform != "darwin"
+onnxruntime==1.30.0; python_version >= "3.11" and sys_platform != "darwin"
+onnxruntime>=1.19.2,<=1.23.2; sys_platform == "darwin"
+flatbuffers==25.12.19
+protobuf==7.36.2
+packaging==26.3
+ai-edge-litert==2.3.0; sys_platform == "win32" or (sys_platform == "darwin" and platform_machine != "x86_64")
+ai-edge-litert>=1.0.1,<=2.3.0; sys_platform == "linux"
+ai-edge-litert==1.0.1; sys_platform == "darwin" and platform_machine == "x86_64"
+ml_dtypes==0.6.0
+typing_extensions==4.16.0
+kflash==1.1.6
+pyelftools==0.33
+tqdm==4.70.1
+backports.strenum==1.2.8; python_version < "3.11"
+tflite-runtime>=2.13.0,<=2.14.0
+coloredlogs==15.0.1
+humanfriendly==10.0
+pyreadline3==3.5.6; sys_platform == "win32"
+sympy==1.14.0
+mpmath==1.3.0
+colorama==0.4.6; sys_platform == "win32"

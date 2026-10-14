@@ -23,6 +23,7 @@
 | `edgelens/metrics/` | FPS／延遲統計、CSV、影像品質、偵測率、模型評估 |
 | `edgelens/gui/` | PySide6 介面 |
 | `edgelens/i18n/` | 翻譯檔 `locales/<語言>/*.json` |
+| `edgelens/zoo.py` | 模型庫：可下載的模型與示範照片清單、下載／sha256 驗證／安裝、離線包匯入 |
 
 ### 擴充點（註冊表）
 
@@ -87,6 +88,80 @@ $PY -m edgelens --selftest            # 自我檢查
 $PY -m edgelens                       # 開啟介面
 ```
 
+## 套件版本釘選（constraints）
+
+`requirements/*.txt` 和 `pyproject.toml` 只寫「可接受的範圍」（例如 `numpy>=1.26,<3`），有幾個甚至沒有上限。
+如果直接照範圍安裝，全班電腦會裝到「安裝當天的最新版」：一來小套件（kflash、pyserial 這類只有一兩位維護者的）
+被入侵或出包時整間教室一起中，二來下學期新版一出就可能裝壞。所以 `requirements/constraints.txt` 把每個
+套件（含 onnxruntime、PySide6 的相依套件）釘成**測試過的精確版本**，bootstrap 每一次 `pip install`
+與 `pip download`（含 `--make-wheelhouse`、tflite-runtime 備援）都會帶 `-c requirements/constraints.txt`，
+CI 也一樣。範圍檔照舊：它說「可以用什麼」，constraints 說「實際裝什麼」。
+
+- constraints 只限制版本，不會多裝東西；改了它，`compute_hash` 就變，每台電腦下次啟動會自動重裝。
+- 新版 numpy／onnxruntime 不再支援舊 Python，所以用環境標記分開，例如 `numpy==2.2.6; python_version < "3.12"`。
+- macOS 的 wheel 有最低系統版本（opencv 4.14 要 macOS 13、onnxruntime 1.30 要 macOS 14），舊 Mac 會找不到檔案。
+  所以 macOS 上這幾個（opencv、onnxruntime）寫成 `>=下限,<=上限`，pip 會挑「這台 Mac 裝得起來的最新版」；其他系統維持 `==`。
+- 新增套件到 `requirements/` 時一定要同步加進 constraints（`test_constraints_cover_every_top_level_requirement` 會檢查）。
+
+### 怎麼升版
+
+1. 在新的暫時環境裝最新版、跑完整測試與 `--selftest`，確定沒問題後，把版本改進 `constraints.txt`。
+2. 用 pip 的解析器在**不安裝**的情況下，把「Python 3.10–3.13 × Windows／macOS（arm64、x86_64，系統版本 12–14）／
+   Linux（x86_64、aarch64，glibc 2.17／2.28／2.31／2.35 或 2.36）」每一種都解析一遍，**有 `-c` 和沒有 `-c` 都要跑**。
+   規則：沒有 `-c` 解析得出來的，加了 `-c` 也一定要解析得出來（選配套件在某些平台本來就沒有 wheel，那是正常的）。
+3. 注意 pip 的 `--python-version` **不會**改環境標記（`python_version`、`sys_platform` 還是用目前這台的），
+   所以要用下面這個小包裝檔把標記也換掉，否則上面那些 `; python_version < ...` 的行會被誤判：
+
+```python
+# pin_check.py（放哪都可以）：用法 T_PY=3.10 T_OS=win python pin_check.py install --dry-run ...
+# 要模擬 x86_64／aarch64 時另外加 T_MACHINE=x86_64（或 aarch64）
+import os, sys
+from pip._vendor.packaging import markers
+SYS, SYSTEM, MACHINE, OS = {"win": ("win32", "Windows", "AMD64", "nt"), "mac": ("darwin", "Darwin", "arm64", "posix"),
+                            "linux": ("linux", "Linux", "x86_64", "posix")}[os.environ["T_OS"]]
+MACHINE = os.environ.get("T_MACHINE", MACHINE)
+markers.default_environment = lambda: {
+    "implementation_name": "cpython", "implementation_version": os.environ["T_PY"] + ".0", "os_name": OS,
+    "platform_machine": MACHINE, "platform_release": "", "platform_system": SYSTEM, "platform_version": "",
+    "python_full_version": os.environ["T_PY"] + ".0", "platform_python_implementation": "CPython",
+    "python_version": os.environ["T_PY"], "sys_platform": SYS, "extra": ""}
+from pip._internal.cli.main import main
+sys.exit(main(sys.argv[1:]))
+```
+
+```bash
+# 例：Python 3.10、Windows、必要套件；把 -c 那兩個字拿掉就是「沒有 constraints」的對照組
+T_PY=3.10 T_OS=win python pin_check.py install --dry-run --ignore-installed --only-binary=:all: \
+  --python-version 3.10 --implementation cp --abi cp310 --platform win_amd64 --target /tmp/pin-test \
+  -r requirements/base.txt -c requirements/constraints.txt --report /tmp/pin-report.json
+# macOS：--platform macosx_13_0_arm64（x86_64 用 macosx_13_0_x86_64 並加 T_MACHINE=x86_64；T_OS=mac）。
+#   pip 會自動展開成更舊的 macOS 版本，所以只要各測 12、13、14 就夠
+# 每個 requirements/extra-*.txt 都要各跑一次；tflite 備援則是一個只寫 tflite-runtime 的暫存檔
+```
+
+**Linux 一定要給完整的 tag 清單。** pip 的 `--platform manylinux_2_28_x86_64` **不會**往下展開成
+`manylinux_2_27`…`manylinux_2_17`，只寫一個 tag 會看不到只標 `manylinux_2_17` 的 wheel
+（ai-edge-litert 1.x 就是），結果「沒有 -c 解析得出來、有 -c 卻失敗」的問題在矩陣裡完全看不到。
+用這段產生旗標（glibc 2.35 ≈ Ubuntu 22.04、2.36 ≈ Raspberry Pi OS bookworm、2.31 ≈ Ubuntu 20.04，
+另外請加測 2.28 與 2.17）：
+
+```bash
+linux_tags() {  # 用法：linux_tags x86_64 35   或   linux_tags aarch64 36
+  for v in $(seq "$2" -1 17); do printf -- '--platform manylinux_2_%s_%s ' "$v" "$1"; done
+  printf -- '--platform manylinux2014_%s --platform manylinux2010_%s --platform manylinux1_%s --platform linux_%s' \
+    "$1" "$1" "$1" "$1"
+}
+T_PY=3.12 T_OS=linux python pin_check.py install --dry-run --ignore-installed --only-binary=:all: \
+  --python-version 3.12 --implementation cp --abi cp312 $(linux_tags x86_64 35) --target /tmp/pin-test \
+  -r requirements/extra-tflite.txt -c requirements/constraints.txt
+```
+
+Linux 上 PySide6／shiboken6、ai-edge-litert、numpy（3.12 以上）在舊 glibc 只有舊版 wheel（例如 aarch64 的 PySide6 在
+glibc 2.39 以下只有 6.8.0.2；ai-edge-litert 2.x 在 glibc 2.17 沒有 wheel），所以這幾個在 Linux 是 `>=下限,<=上限`
+的範圍行，不是 `==`。
+
+升版完成後，`--report` 的結果裡每個套件的版本都應該等於 constraints 裡的版本（macOS 與 Linux 的範圍行除外）。
+
 ## 工作包與檔案歸屬
 
 開發時分成幾個工作包（WP）平行進行，每個工作包只改自己的檔案；共用的核心檔案
@@ -125,6 +200,7 @@ $PY -m edgelens                       # 開啟介面
 | `gui/panels/{camera,pipeline,capture,dataset,bench,k210}.py` | 相機設定、影像處理、拍照、資料集、效能／錄影及板子工具；共同面板介面由 `gui/panels/base.py` 定義 |
 | [dataset/writer.py](../edgelens/dataset/writer.py)、`dataset/{stats,dedupe,split,export}.py` | 原始與處理影像、metadata、改類別、刪除復原、統計、相似照片、分組切分與 ZIP；由拍照與資料集 GUI 共用 |
 | [gui/dataset_browser.py](../edgelens/gui/dataset_browser.py)、[gui/export_dialog.py](../edgelens/gui/export_dialog.py)、[gui/capture_tools.py](../edgelens/gui/capture_tools.py) | 縮圖瀏覽、篩選、資料切分／匯出；品質門檻、近期相似提醒與靜止判斷支援拍照流程 |
+| [zoo.py](../edgelens/zoo.py)、[gui/zoo_download.py](../edgelens/gui/zoo_download.py)、[gui/class_filter_dialog.py](../edgelens/gui/class_filter_dialog.py)、[tools/export_objects365.py](../tools/export_objects365.py) | 模型庫：清單（網址、大小、sha256）在 `zoo.CATALOG`，zip 由匯出腳本製作後上傳 GitHub Release `models-v1`；安裝在快取的 `zoo/<id>/`，示範照片由 `FileSource.discover()` 列出；模型面板的類別篩選寫入 `ModelCard.class_filter` |
 | `metrics/{rolling,quality,csvlog,sweep,evaluate,detection_rate}.py`、[gui/recorder.py](../edgelens/gui/recorder.py) | FPS／延遲、品質、CSV、參數掃描、模型評估及偵測率；Recorder 保存影片與對應數據 |
 | [diagnostics_report.py](../edgelens/diagnostics_report.py)、[gui/diagnostics.py](../edgelens/gui/diagnostics.py)、[selftest.py](../edgelens/selftest.py) | 系統／套件／註冊表／外掛匯入失敗、設定遮蔽、日誌與自我檢查；GUI 可匯出診斷 ZIP |
 | [i18n/__init__.py](../edgelens/i18n/__init__.py)、`i18n/locales/{zh_TW,en}/*.json` | 合併翻譯表；`tr` 處理內建文字，`tr_or` 支援指定備援文字；顯示備援仍依各 GUI 呼叫處決定 |

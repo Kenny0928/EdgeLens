@@ -4,7 +4,7 @@
   "gui.panel.compare.title": "Compare",
   "gui.model.empty": "Add and select a camera first, then load a model to recognize things.",
   "gui.model.load": "Load model...",
-  "gui.model.builtin": "Built-in OpenCV detectors",
+  "gui.model.builtin": "Built-in models",
   "gui.model.recent": "Recent",
   "gui.model.recent.none": "(none yet)",
   "gui.model.filter": "Model files",
@@ -94,5 +94,18 @@
   "gui.compare.col.sharpness": "Sharpness",
   "gui.compare.col.brightness": "Brightness",
   "gui.compare.col.best": "Top score (class)",
-  "gui.compare.col.rate": "Detection rate"
+  "gui.compare.col.rate": "Detection rate",
+  "gui.model.zoo.section": "Object detection (download)",
+  "gui.model.zoo.download": "{name}  Download (about {size})",
+  "gui.model.zoo.license": "License: {license}",
+  "gui.model.zoo.import": "Import offline model pack...",
+  "gui.model.haar.section": "OpenCV built-in detectors (no download)",
+  "gui.model.filter.all": "Classes shown: all...",
+  "gui.model.filter.some": "Classes shown: {count} / {total}...",
+  "gui.model.filter.title": "Show only these classes",
+  "gui.model.filter.note": "Tick the classes to show. Unticked classes are not drawn or counted even when detected. Search works in either language.",
+  "gui.model.filter.search": "Search classes, e.g. cup",
+  "gui.model.filter.check_all": "Select all",
+  "gui.model.filter.check_none": "Select none",
+  "gui.model.filter.count": "{count} / {total} selected"
 }

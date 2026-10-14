@@ -117,5 +117,12 @@
   "gui.list_sep": ", ",
   "gui.control.browse_file": "Choose a file…",
   "gui.control.browse_folder": "Choose a folder…",
-  "gui.hud.ended": "Finished (turn on looping or restart in the Camera panel)"
+  "gui.hud.ended": "Finished (turn on looping or restart in the Camera panel)",
+  "gui.source.samples.download": "Download {name} (about {size})",
+  "gui.plugins.trust.title": "Load plugins?",
+  "gui.plugins.trust.text": "This workspace has plugins that EdgeLens has not seen before. Plugins are Python programs that can do anything on this computer. Only load them if you know where they came from.",
+  "gui.plugins.trust.new": "new",
+  "gui.plugins.trust.changed": "changed",
+  "gui.plugins.trust.load": "Load plugins",
+  "gui.plugins.trust.skip": "Not this time"
 }

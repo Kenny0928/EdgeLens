@@ -8,6 +8,7 @@ English: [README.md](README.md)
 
 - **接各種影像來源**：電腦內建／USB webcam、由作業系統提供的 iPhone 相機、圖片與影片、HTTP MJPEG、RTSP、ESP32-CAM、K210（MaixPy v1）。沒有硬體也能用測試圖案、模擬 ESP32-CAM 練習。
 - **觀察與處理影像**：多相機並排、裁切縮放、灰階、濾波、顏色遮罩、二值化、輪廓與動作分析；可用吸管取色、儲存流程與 Python 外掛。
+- **馬上試物件偵測**：「內附模型」可下載用 Objects365 訓練好的 YOLO26 模型（365 種常見物品，類別顯示中文），也有示範照片，不用自己找模型或相機。
 - **執行分類與偵測模型**：ONNX、TFLite、Darknet（`.weights`＋`.cfg`）、OpenCV DNN 的 TensorFlow／Caffe 格式、Haar 級聯；K210 `.kmodel` 在板上執行。支援常見 YOLO 輸出、SSD、MobileNet 分類；不是所有匯出格式都保證相容，實測與限制見[模型支援說明](docs/MODEL_SUPPORT.md)。
 - **蒐集與整理樣本**：類別快捷鍵、連拍、倒數、靜止自動拍、品質與相近照片提醒、構圖參考、多相機拍照、改類別、刪除復原、資料切分與 ZIP 匯出。
 - **留下實驗證據**：FPS、延遲、長時間測試、參數掃描、CSV 與錄影。訓練在外部平台完成，EdgeLens 負責蒐集、處理與測試。

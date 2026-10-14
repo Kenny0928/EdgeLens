@@ -92,5 +92,9 @@
   "gui.dataset.export.done": "Export finished: {path}",
   "gui.dataset.export.next_folders": "Next: unzip it, then upload each folder as one class in Teachable Machine or Edge Impulse.",
   "gui.dataset.export.next_split": "Next: unzip it and point your Keras training script at the train, val and test folders, or upload them to MaixHub.",
-  "gui.dataset.export.busy_close": "Export is still running. Cancel it and close?"
+  "gui.dataset.export.busy_close": "Export is still running. Cancel it and close?",
+  "gui.dataset.empty_trash": "Empty trash",
+  "gui.dataset.empty_trash_confirm": "Permanently delete {count} photos in the trash? This cannot be undone.",
+  "gui.dataset.trash_emptied": "Permanently deleted {count} photos.",
+  "gui.dataset.trash_hint": "Deleted photos are removed automatically {days} days after deletion."
 }
