@@ -8,9 +8,11 @@ import sys
 import traceback
 from typing import Any
 
+from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QApplication, QMessageBox
 
 from edgelens import APP_NAME, i18n
+from edgelens.core.hangwatch import start_hang_watch
 from edgelens.core.housekeeping import run_startup_housekeeping
 from edgelens.core.log import current_log_file
 from edgelens.core.paths import default_workspace
@@ -125,6 +127,13 @@ def run(args: Any = None) -> int:
     _install_excepthook()
     # 只在真正啟動時清理：create_app() 給測試用，而暫存清理會掃系統的 temp 資料夾
     run_startup_housekeeping()
+    # 卡住時把各執行緒的位置寫進日誌（學生只能強制關閉時，這是唯一的線索）
+    log_file = current_log_file()
+    watch = start_hang_watch(log_file.parent if log_file is not None else None)
+    if watch is not None:
+        beat = QTimer(window)
+        beat.timeout.connect(watch.beat)
+        beat.start(1000)
     window.show()
     code = app.exec()
     ctx.save_settings()
