@@ -771,10 +771,20 @@ class MainWindow(QMainWindow):
         if not infos or self.ctx.sources:
             return
         names = "\n".join("• " + i.name for i in infos)
-        ans = QMessageBox.question(self, tr("gui.reopen.title"), tr("gui.reopen.text", names=names))
-        if ans == QMessageBox.StandardButton.Yes:
-            for info in infos[:MAX_SOURCES]:
-                self.add_source(info)
+        # 不用 QMessageBox.question()：那是獨立的 app-modal 視窗，程式沒在前景時會單獨藏在別的視窗後面，
+        # 主視窗也被擋住。WindowModal + open() 在 macOS 是黏在主視窗上的 sheet，也不跑巢狀事件迴圈。
+        box = QMessageBox(QMessageBox.Icon.Question, tr("gui.reopen.title"), tr("gui.reopen.text", names=names),
+                          QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, self)
+        box.setWindowModality(Qt.WindowModality.WindowModal)
+        box.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        box.finished.connect(lambda result: self._reopen_answered(result, infos))
+        box.open()
+
+    def _reopen_answered(self, result: int, infos: list[SourceInfo]) -> None:
+        if result != QMessageBox.StandardButton.Yes or self.ctx.sources or self._closing:
+            return
+        for info in infos[:MAX_SOURCES]:
+            self.add_source(info)
 
     def closeEvent(self, event) -> None:  # noqa: N802
         if self._closing:

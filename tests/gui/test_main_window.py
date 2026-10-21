@@ -5,11 +5,11 @@ from __future__ import annotations
 import types
 
 import pytest
-from PySide6.QtCore import QThread
+from PySide6.QtCore import Qt, QThread
 
 from edgelens import i18n
 from edgelens.gui.app import create_app
-from edgelens.sources.base import SourceInfo
+from edgelens.sources.base import SourceInfo, info_for_storage
 from edgelens.sources.synthetic import SyntheticSource
 
 pytestmark = pytest.mark.gui
@@ -178,3 +178,30 @@ def test_hud_says_when_file_playback_ended(qtbot, gui, tmp_path):
     handle = window.add_source(info)
     view = window.video_view_for(handle)
     qtbot.waitUntil(lambda: any("已播完" in line for line in view._hud), timeout=4000)
+
+
+@pytest.mark.parametrize("answer, opened", [("Yes", 1), ("No", 0)])
+def test_reopen_prompt_does_not_block(qtbot, gui, answer, opened):
+    """「重新開啟相機？」要黏在主視窗上、立刻返回：程式沒在前景時，獨立的 modal 對話框會藏在別的視窗後面，
+    主視窗也跟著卡住，學生會以為「視窗沒有跳出來」。"""
+    from PySide6.QtWidgets import QMessageBox
+
+    ctx, window = gui
+    ctx.settings.set("session.sources", [info_for_storage(synth())])
+    window.show()
+    window._offer_reopen()  # 會阻塞的話這行就回不來
+    box = window.findChild(QMessageBox)
+    assert box is not None and box.isVisible()
+    assert box.parent() is window and box.windowModality() == Qt.WindowModality.WindowModal
+    assert not ctx.sources
+    box.button(getattr(QMessageBox.StandardButton, answer)).click()
+    assert len(ctx.sources) == opened
+
+
+def test_bring_to_front_never_raises(gui):
+    from edgelens.gui.app import _bring_to_front
+
+    _ctx, window = gui
+    window.show()
+    _bring_to_front(window)
+    _bring_to_front()

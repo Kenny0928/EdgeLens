@@ -9,6 +9,7 @@ import traceback
 from typing import Any
 
 from PySide6.QtCore import QTimer
+from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import QApplication, QMessageBox
 
 from edgelens import APP_NAME, i18n
@@ -52,6 +53,41 @@ def _install_excepthook() -> None:
             _in_excepthook = False
 
     sys.excepthook = hook
+
+
+def _activate_macos_app() -> None:
+    """[[NSApplication sharedApplication] activateIgnoringOtherApps:YES]，用 ctypes 呼叫，不需要 pyobjc。
+
+    從終端機（run_macos.command）跑的 python 不是 .app，macOS 14 起不會自動被帶到前景，
+    視窗會開在別的 App 後面，學生以為「視窗沒有跳出來」。"""
+    import ctypes
+    import ctypes.util
+
+    objc = ctypes.cdll.LoadLibrary(ctypes.util.find_library("objc") or "/usr/lib/libobjc.A.dylib")
+    objc.objc_getClass.restype = ctypes.c_void_p
+    objc.objc_getClass.argtypes = [ctypes.c_char_p]
+    objc.sel_registerName.restype = ctypes.c_void_p
+    objc.sel_registerName.argtypes = [ctypes.c_char_p]
+    send = objc.objc_msgSend  # arm64 不能用 variadic 呼叫：每次都要先設好確切的參數型別
+    send.restype = ctypes.c_void_p
+    send.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+    ns_app = send(objc.objc_getClass(b"NSApplication"), objc.sel_registerName(b"sharedApplication"))
+    if not ns_app:
+        return
+    send.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_bool]
+    send(ns_app, objc.sel_registerName(b"activateIgnoringOtherApps:"), True)
+
+
+def _bring_to_front(window: Any = None) -> None:
+    """把視窗與整個程式帶到最前面。失敗只記錄，絕不擋啟動。"""
+    try:
+        if window is not None:
+            window.raise_()
+            window.activateWindow()
+        if sys.platform == "darwin" and QGuiApplication.platformName() == "cocoa":
+            _activate_macos_app()
+    except Exception as e:  # noqa: BLE001
+        log.debug("無法把視窗帶到前景：%s", e)
 
 
 def _arg(args: Any, name: str, default: Any = None) -> Any:
@@ -98,6 +134,8 @@ def create_app(args: Any = None, *, interactive: bool = False) -> tuple[QApplica
     app.setApplicationName(APP_NAME)
     app.setOrganizationName(APP_NAME)
     apply_theme(app)
+    if interactive:
+        _bring_to_front()  # 第一次啟動的工作區對話框、外掛確認視窗會比主視窗先跳出來，也要看得到
 
     settings = Settings()
     lang = _arg(args, "lang") or settings.get("ui.language", i18n.DEFAULT_LANGUAGE)
@@ -135,6 +173,7 @@ def run(args: Any = None) -> int:
         beat.timeout.connect(watch.beat)
         beat.start(1000)
     window.show()
+    _bring_to_front(window)
     code = app.exec()
     ctx.save_settings()
     return int(code)
